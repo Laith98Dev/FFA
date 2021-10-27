@@ -198,13 +198,13 @@ class FFAGame
 		
 		if(!is_array($lobby) || count($lobby) == 0){
 			if($player->hasPermission("ffa.command.admin"))
-				$player->sendMessage(TF::RED . "Please set game lobby, Usage: /ffa setlobby");
+				$player->sendMessage(TF::RED . "Please set lobby position, Usage: /ffa setlobby");
 			return false;
 		}
 		
 		if(!is_array($this->getRespawn()) || count($this->getRespawn()) == 0){
 			if($player->hasPermission("ffa.command.admin"))
-				$player->sendMessage(TF::RED . "Please set game lobby, Usage: /ffa setrespawn");
+				$player->sendMessage(TF::RED . "Please set respawn position, Usage: /ffa setrespawn");
 			return false;
 		}
 		
