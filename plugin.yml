@@ -1,0 +1,13 @@
+name: FFA
+api: [3.0.0]
+version: 1.0.0
+main: Laith98Dev\FFA\Main
+author: Laith98Dev
+
+commands:
+  ffa:
+    description: FFA Commands
+
+permissions:
+  ffa.command.admin:
+    description: Permission to allow use all ffa commands
