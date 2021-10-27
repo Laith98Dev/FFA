@@ -54,8 +54,6 @@ use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\level\Position;
 use pocketmine\level\Location;
 
-use pocketmine\Item\Item;
-
 use pocketmine\Player;
 use pocketmine\math\Vector3;
 
