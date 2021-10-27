@@ -66,14 +66,14 @@ use pocketmine\utils\{Config, TextFormat as TF};
 
 class Main extends PluginBase implements Listener
 {
-	/** @var string[] */
+	/** @var FFAGame[] */
 	public $arenas = [];
 	
 	public function onEnable(){
 		@mkdir($this->getDataFolder());
 		
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
-		$this->getScheduler()->scheduleRepeatingTask(new UpdateTask($this), 20);
+		$this->getScheduler()->scheduleRepeatingTask(new ArenasTask($this), 20);
 		
 		(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
 			"scoreboardIp" => "play.example.net",
@@ -590,21 +590,5 @@ class Main extends PluginBase implements Listener
 		}
 		
 		return $tops->get($name)["deaths"];
-	}
-}
-
-class UpdateTask extends Task
-{
-	/** @var Main */
-	private $plugin;
-	
-	public function __construct(Main $plugin){
-		$this->plugin = $plugin;
-	}
-	
-	public function onRun(int $tick){
-		foreach ($this->plugin->getArenas() as $arena){
-			$arena->tick();
-		}
 	}
 }
