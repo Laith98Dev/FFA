@@ -35,369 +35,554 @@ namespace Laith98Dev\FFA;
  * 	
  */
 
-use pocketmine\level\Location;
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
 
-use pocketmine\item\Item;
-
-use pocketmine\Player;
-
-use pocketmine\math\Vector3;
+use pocketmine\event\entity\EntityDamageByEntityEvent;
+use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\event\entity\EntityLevelChangeEvent;
+use pocketmine\event\player\PlayerDropItemEvent;
+use pocketmine\event\player\PlayerInteractEvent;
+use pocketmine\event\player\PlayerMoveEvent;
+use pocketmine\event\player\PlayerQuitEvent;
+use pocketmine\event\player\PlayerRespawnEvent;
+use pocketmine\event\player\PlayerExhaustEvent;
+use pocketmine\event\player\PlayerCommandPreprocessEvent;
+use pocketmine\event\block\BlockBreakEvent;
+use pocketmine\event\block\BlockPlaceEvent;
 
 use pocketmine\level\Position;
+use pocketmine\level\Location;
+
+use pocketmine\Player;
+use pocketmine\math\Vector3;
+
+use pocketmine\scheduler\Task;
+use pocketmine\command\{CommandSender, Command};
 
 use pocketmine\utils\{Config, TextFormat as TF};
 
-use pocketmine\event\entity\EntityDamageEvent;
-use pocketmine\event\entity\EntityDamageByEntityEvent;
-
-use pocketmine\network\mcpe\protocol\RemoveObjectivePacket;
-use pocketmine\network\mcpe\protocol\SetDisplayObjectivePacket;
-use pocketmine\network\mcpe\protocol\SetScorePacket;
-use pocketmine\network\mcpe\protocol\types\ScorePacketEntry;
-
-class FFAGame 
+class Main extends PluginBase implements Listener
 {
-	/** @var Main */
-	private $plugin;
+	/** @var FFAGame[] */
+	public $arenas = [];
 	
-	/** @var array */
-	private $data;
-	
-	/** @var string[] */
-	private $players = [];
-	
-	/** @var string[] */
-	private $scoreboards = [];
-	
-	/** @var int */
-	private $scoreboardsLine = 0;
-	
-	private $scoreboardsLines = [
-		0 => TF::BOLD . TF::YELLOW . "FFA",
-		1 => TF::BOLD . TF::WHITE . "F" . TF::YELLOW . "FA",
-		2 => TF::BOLD . TF::YELLOW . "F" . TF::WHITE . "F" . TF::YELLOW . "A",
-		3 => TF::BOLD . TF::YELLOW . "FF" . TF::WHITE . "A",
-		4 => TF::BOLD . TF::WHITE . "FFA"
-	];
-	
-	public $protect = [];
-	
-	public function __construct(Main $plugin, array $data){
-		$this->plugin = $plugin;
-		$this->UpdateData($data);
+	public function onEnable(){
+		@mkdir($this->getDataFolder());
+		
+		$this->getServer()->getPluginManager()->registerEvents($this, $this);
+		$this->getScheduler()->scheduleRepeatingTask(new ArenasTask($this), 20);
+		
+		(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
+			"scoreboardIp" => "play.example.net",
+			"death-respawn-inMap" => true,
+			"join-and-respawn-protected" => true,
+			"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
+			"death-void-message" => "&c{PLAYER} &ffall into void"
+		]));
+		
+		$this->reloadCheck();// TODO: quit all player when server reload^^
+		$this->loadArenas();
 	}
 	
-	public function getPlugin(){
-		return $this->plugin;
-	}
-	
-	public function UpdateData(array $data){
-		$this->data = $data;
-	}
-	
-	public function getData(){
-		return $this->data;
-	}
-	
-	public function getName(){
-		return $this->getData()["name"];
-	}
-	
-	public function getWorld(){
-		return $this->getData()["world"];
-	}
-	
-	public function getLobby(){
-		return $this->getData()["lobby"];
-	}
-	
-	public function getRespawn(){
-		return $this->getData()["respawn"];
-	}
-	
-	public function getPlayers(){
-		return $this->players;
-	}
-	
-	public function isProtected(Player $player){
-		return isset($this->protect[$player->getName()]);
-	}
-	
-	public function inArena(Player $player){
-		return isset($this->players[$player->getName()]) ? true : false;
-	}
-	
-	public function new(Player $player, string $objectiveName, string $displayName): void{
-		if(isset($this->scoreboards[$player->getName()])){
-			$this->remove($player);
-		}
-		$pk = new SetDisplayObjectivePacket();
-		$pk->displaySlot = "sidebar";
-		$pk->objectiveName = $objectiveName;
-		$pk->displayName = $displayName;
-		$pk->criteriaName = "dummy";
-		$pk->sortOrder = 0;
-		$player->sendDataPacket($pk);
-		$this->scoreboards[$player->getName()] = $objectiveName;
-	}
-
-	public function remove(Player $player): void{
-		$objectiveName = $this->getObjectiveName($player) ?? "ffa";
-		$pk = new RemoveObjectivePacket();
-		$pk->objectiveName = $objectiveName;
-		$player->sendDataPacket($pk);
-		unset($this->scoreboards[$player->getName()]);
-	}
-
-	public function setLine(Player $player, int $score, string $message): void{
-		if(!isset($this->scoreboards[$player->getName()])){
-			$this->plugin->getLogger()->error("Cannot set a score to a player with no scoreboard");
-			return;
-		}
-		if($score > 15 || $score < 1){
-			$this->plugin->getLogger()->error("Score must be between the value of 1-15. $score out of range");
-			return;
-		}
-		$objectiveName = $this->getObjectiveName($player) ?? "ffa";
-		$entry = new ScorePacketEntry();
-		$entry->objectiveName = $objectiveName;
-		$entry->type = $entry::TYPE_FAKE_PLAYER;
-		$entry->customName = $message;
-		$entry->score = $score;
-		$entry->scoreboardId = $score;
-		$pk = new SetScorePacket();
-		$pk->type = $pk::TYPE_CHANGE;
-		$pk->entries[] = $entry;
-		$player->sendDataPacket($pk);
-	}
-
-	public function getObjectiveName(Player $player): ?string{
-		return isset($this->scoreboards[$player->getName()]) ? $this->scoreboards[$player->getName()] : null;
-	}
-	
-	public function getLevel(?string $name = null){
-		if($name == null){
-			$this->plugin->getServer()->loadLevel($this->getWorld());
-			return $this->plugin->getServer()->getLevelByName($this->getWorld());
-		}
-		return $this->plugin->getServer()->getLevelByName($name);
-	}
-	
-	public function broadcast(string $message){
-		foreach ($this->getPlayers() as $player){
-			$player->sendMessage($message);
-		}
-	}
-	
-	public function joinPlayer(Player $player): bool{
-		
-		if(isset($this->players[$player->getName()]))
-			return false;
-		
-		$lobby = $this->getLobby();
-		
-		if(!is_array($lobby) || count($lobby) == 0){
-			if($player->hasPermission("ffa.command.admin"))
-				$player->sendMessage(TF::RED . "Please set game lobby, Usage: /ffa setlobby");
-			return false;
-		}
-		
-		if(!is_array($this->getRespawn()) || count($this->getRespawn()) == 0){
-			if($player->hasPermission("ffa.command.admin"))
-				$player->sendMessage(TF::RED . "Please set game lobby, Usage: /ffa setrespawn");
-			return false;
-		}
-		
-		$x = $lobby["PX"];
-		$y = $lobby["PY"];
-		$z = $lobby["PZ"];
-		$yaw = $lobby["YAW"];
-		$pitch = $lobby["PITCH"];
-		
-		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
-		
-		$player->setGamemode(2);
-		$player->setHealth(20);
-		$player->setFood(20);
-		
-		$player->getInventory()->clearAll();
-		$player->getArmorInventory()->clearAll();
-		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
-		
-		$player->getInventory()->setItem(0, Item::get(Item::IRON_SWORD, 0, 1));
-		$player->getInventory()->setItem(1, Item::get(Item::GOLDEN_APPLE, 0, 5));
-		$player->getInventory()->setItem(2, Item::get(Item::BOW, 0, 1));
-		$player->getInventory()->setItem(3, Item::get(Item::ARROW, 0, 15));
-		
-		$player->getArmorInventory()->setHelmet(Item::get(Item::IRON_HELMET));
-		$player->getArmorInventory()->setChestplate(Item::get(Item::IRON_CHESTPLATE));
-		$player->getArmorInventory()->setLeggings(Item::get(Item::IRON_LEGGINGS));
-		$player->getArmorInventory()->setBoots(Item::get(Item::IRON_BOOTS));
-		
-		$this->players[$player->getName()] = $player;
-		
-		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-		if($cfg->get("join-and-respawn-protected") === true){
-			$this->protect[$player->getName()] = 3;
-			$player->sendMessage("You're now protected 3 seconds");
-		}
-		
-		$this->broadcast($player->getName() . " joined to FFA!");
-		return true;
-	}
-	
-	public function quitPlayer(Player $player): bool{
-		
-		if(!isset($this->players[$player->getName()]))
-			return false;
-		
-		unset($this->players[$player->getName()]);
-		
-		$this->remove($player);
-		
-		$player->teleport($this->plugin->getServer()->getDefaultLevel()->getSafeSpawn());
-		$player->getInventory()->clearAll();
-		$player->getArmorInventory()->clearAll();
-		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
-		$player->setGamemode($this->plugin->getServer()->getDefaultGamemode());
-		$player->setHealth(20);
-		$player->setFood(20);
-		
-		$this->broadcast($player->getName() . " quit FFA!");
-		return true;
-	}
-	
-	public function killPlayer(Player $player): void{
-		$message = null;
-		$event = $player->getLastDamageCause();
-		
-		if($event == null)
-			return;
-		
-		if(!is_int($event->getCause()))
-			return;
-		
-		$player->getInventory()->clearAll();
-		$player->getArmorInventory()->clearAll();
-		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
-		
-		$player->setGamemode(2);
-		$player->setHealth(20);
-		$player->setFood(20);
-		$this->plugin->addDeath($player);
-		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-		switch ($event->getCause()){
-			case EntityDamageEvent::CAUSE_ENTITY_ATTACK:
-				$damager = $event instanceof EntityDamageByEntityEvent ? $event->getDamager() : null;
-				if($damager !== null && $damager instanceof Player){
-					$message = str_replace(["{PLAYER}", "{KILLER}", "&"], [$player->getName(), $damager->getName(), TF::ESCAPE], $cfg->get("death-attack-message"));
-					$this->plugin->addKill($damager);
-					
-					$damager->sendPopup(TF::YELLOW . "+1 Kill");
-					$damager->setHealth(20);
-					$damager->setFood(20);
-					
-					$damager->getInventory()->clearAll();
-					$damager->getArmorInventory()->clearAll();
-					$damager->getCraftingGrid()->clearAll();
-					$damager->removeAllEffects();
-					
-					$damager->getInventory()->setItem(0, Item::get(Item::IRON_SWORD, 0, 1));
-					$damager->getInventory()->setItem(1, Item::get(Item::GOLDEN_APPLE, 0, 5));
-					$damager->getInventory()->setItem(2, Item::get(Item::BOW, 0, 1));
-					$damager->getInventory()->setItem(3, Item::get(Item::ARROW, 0, 15));
-					
-					$damager->getArmorInventory()->setHelmet(Item::get(Item::IRON_HELMET));
-					$damager->getArmorInventory()->setChestplate(Item::get(Item::IRON_CHESTPLATE));
-					$damager->getArmorInventory()->setLeggings(Item::get(Item::IRON_LEGGINGS));
-					$damager->getArmorInventory()->setBoots(Item::get(Item::IRON_BOOTS));
-				}
-			break;
-			
-			case EntityDamageEvent::CAUSE_VOID:
-				$message = str_replace(["{PLAYER}", "&"], [$player->getName(), TF::ESCAPE], $cfg->get("death-void-message"));
-			break;
-		}
-		
-		if($message !== null)
-			$this->broadcast($message);
-		
-		if($cfg->get("death-respawn-inMap") === true){
-			$this->respawn($player);
-		} else {
-			$this->quitPlayer($player);
-		}
-	}
-	
-	public function respawn(Player $player){
-		$player->setGamemode(2);
-		$player->setHealth(20);
-		$player->setFood(20);
-		
-		$player->getInventory()->clearAll();
-		$player->getArmorInventory()->clearAll();
-		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
-		
-		$player->getInventory()->setItem(0, Item::get(Item::IRON_SWORD, 0, 1));
-		$player->getInventory()->setItem(1, Item::get(Item::GOLDEN_APPLE, 0, 5));
-		$player->getInventory()->setItem(2, Item::get(Item::BOW, 0, 1));
-		$player->getInventory()->setItem(3, Item::get(Item::ARROW, 0, 15));
-		
-		$player->getArmorInventory()->setHelmet(Item::get(Item::IRON_HELMET));
-		$player->getArmorInventory()->setChestplate(Item::get(Item::IRON_CHESTPLATE));
-		$player->getArmorInventory()->setLeggings(Item::get(Item::IRON_LEGGINGS));
-		$player->getArmorInventory()->setBoots(Item::get(Item::IRON_BOOTS));
-		
-		$respawn = $this->getRespawn();
-		$x = $respawn["PX"];
-		$y = $respawn["PY"];
-		$z = $respawn["PZ"];
-		$yaw = $respawn["YAW"];
-		$pitch = $respawn["PITCH"];
-		
-		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
-		
-		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-		if($cfg->get("join-and-respawn-protected") === true){
-			$this->protect[$player->getName()] = 3;
-			$player->sendMessage("You're now protected 3 seconds");
-		}
-		
-		$player->addTitle(TF::YELLOW . TF::BOLD . "Respawned");
-	}
-	
-	public function tick(){
-		foreach ($this->getPlayers() as $player){
-			$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-			$this->new($player, "ffa", $this->scoreboardsLines[$this->scoreboardsLine]);
-			$this->setLine($player, 1, " ");
-			$this->setLine($player, 2, " Players: " . TF::YELLOW . count($this->getPlayers()) . "  ");
-			$this->setLine($player, 3, "  ");
-			$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getWorld() . "  ");
-			$this->setLine($player, 5, "   ");
-			$this->setLine($player, 6, " Kills: " . TF::YELLOW . $this->plugin->getKills($player) . " ");
-			$this->setLine($player, 7, " Deaths: " . TF::YELLOW . $this->plugin->getDeaths($player) . " ");
-			$this->setLine($player, 8, "    ");
-			$this->setLine($player, 9, " " . $cfg->get("scoreboardIp", "play.example.net") . " ");
-		}
-		
-		if($this->scoreboardsLine == (count($this->scoreboardsLines) - 1)){
-			$this->scoreboardsLine = 0;
-		} else {
-			++$this->scoreboardsLine;
-		}
-		
-		foreach ($this->protect as $name => $time){
-			//var_dump("Player: " . $name . " Time: " . $time . "\n");
-			if($time == 0){
-				unset($this->protect[$name]);
-			} else {
-				$this->protect[$name]--;
+	public function reloadCheck(){
+		foreach ($this->arenas as $arena){
+			foreach ($arena->getPlayers() as $player){
+				$arena->quitPlayer($player);
 			}
 		}
+	}
+	
+	public function loadArenas(){
+		$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
+		foreach ($arenas->getAll() as $arena => $data){
+			if(!isset($data["name"]) || !isset($data["world"]) || !isset($data["lobby"]) || !isset($data["respawn"])){
+				if(isset($data["name"]))
+					$this->getLogger()->error("Error in load arena " . $data["name"] . " because corrupt data!");
+				continue;
+			}
+			
+			$this->getServer()->loadLevel($data["world"]);
+			if(($level = $this->getServer()->getLevelByName($data["world"])) !== null){
+				$level->setTime(1000);
+				$level->stopTime();
+			}
+			$this->arenas[$data["name"]] = new FFAGame($this, $data);
+		}
+	}
+	
+	public function addArena(array $data): bool{
+		if(!isset($data["name"]) || !isset($data["world"]) || !isset($data["lobby"]) || !isset($data["respawn"]))
+			return false;
+		
+		$name = $data["name"];
+		$world = $data["world"];
+		$lobby = $data["lobby"];
+		$respawn = $data["respawn"];
+		
+		$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
+		
+		if($arenas->get($name))
+			return false;
+		
+		$arenas->set($name, $data);
+		$arenas->save();
+		
+		$this->arenas[$name] = new FFAGame($this, $data);
+		return true;
+	}
+	
+	public function removeArena(string $name): bool{
+		$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
+		
+		if(!$arenas->get($name) || !isset($this->arenas[$name]))
+			return false;
+		
+		if(($arena = $this->getArena($name)) !== null){
+			foreach ($arena->getPlayers() as $player){
+				$arena->quitPlayer($player);
+			}
+		}
+		
+		$arenas->removeNested($name);
+		$arenas->save();
+		
+		unset($this->arenas[$name]);
+		return true;
+	}
+	
+	public function getArenas(){
+		return $this->arenas;
+	}
+	
+	public function getArena(string $name){
+		return isset($this->arenas[$name]) ? $this->arenas[$name] : null;
+	}
+	
+	public function onCommand(CommandSender $sender, Command $cmd, string $cmdLabel, array $args): bool{
+		switch ($cmd->getName()){
+			case "ffa":
+				if(!($sender instanceof Player)){
+					$sender->sendMessage("run command in-game only");
+					return false;
+				}
+				
+				if(!isset($args[0])){
+					$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " help");
+					return false;
+				}
+				
+				switch ($args[0]){
+					case "help":
+						$sender->sendMessage(TF::YELLOW . "========================");
+						if($sender->hasPermission("ffa.command.admin")){
+							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " help");
+							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " create");
+							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " remove");
+							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " setlobby");
+							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " setrespawn");
+							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " list");
+						}
+						$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " join");
+						$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " quit");
+						$sender->sendMessage(TF::YELLOW . "========================");
+					break;
+					
+					case "create":
+						if(!$sender->hasPermission("ffa.command.admin"))
+							return false;
+						if(!isset($args[1])){
+							$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " create <arenaName>");
+							return false;
+						}
+						
+						$arenaName = $args[1];
+						$level = $sender->getLevel();
+						
+						if($level->getFolderName() == $this->getServer()->getDefaultLevel()->getFolderName()){
+							$sender->sendMessage(TF::RED . "You cannot create game in default level!");
+							return false;
+						}
+						
+						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
+						
+						if($arenas->get($arenaName)){
+							$sender->sendMessage(TF::RED . "Arena already exist!");
+							return false;
+						}
+						
+						$data = ["name" => $arenaName, "world" => $level->getFolderName(), "lobby" => [], "respawn" => []];
+						if($this->addArena($data)){
+							$sender->sendMessage(TF::YELLOW . "Arena created!");
+							return true;
+						}
+					break;
+					
+					case "remove":
+						if(!$sender->hasPermission("ffa.command.admin"))
+							return false;
+						
+						if(!isset($args[1])){
+							$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " remove <arenaName>");
+							return false;
+						}
+						
+						$arenaName = $args[1];
+						
+						if(!isset($this->arenas[$arenaName])){
+							$sender->sendMessage(TF::RED . "Arena not exist");
+							return false;
+						}
+						
+						if($this->removeArena($arenaName)){
+							$sender->sendMessage(TF::GREEN . "Arena deleted!");
+							return true;
+						}
+					break;
+					
+					case "setlobby":
+						if(!$sender->hasPermission("ffa.command.admin"))
+							return false;
+						
+						$level = $sender->getLevel();
+						$arena = null;
+						$arenaName = null;
+						foreach ($this->getArenas() as $arena_){
+							if($arena_->getName() == $level->getFolderName()){
+								$arenaName = $arena_->getName();
+								$arena = $arena_;
+							}
+						}
+						
+						if($arenaName == null){
+							$sender->sendMessage(TF::RED . "Arena not exist, try create Usage: /" . $cmdLabel . " create" . "!");
+							return false;
+						}
+						
+						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
+						$data = $arenas->get($arenaName);
+						$data["lobby"] = ["PX" => $sender->x, "PY" => $sender->y, "PZ" => $sender->z, "YAW" => $sender->yaw, "PITCH" => $sender->pitch];
+						$arenas->set($arenaName, $data);
+						$arenas->save();
+						if($arena !== null)
+							$arena->UpdateData($data);
+						$sender->sendMessage(TF::YELLOW . "Lobby has been set!");
+					break;
+					
+					case "setrespawn":
+						if(!$sender->hasPermission("ffa.command.admin"))
+							return false;
+						
+						$level = $sender->getLevel();
+						$arena = null;
+						$arenaName = null;
+						foreach ($this->getArenas() as $arena_){
+							if($arena_->getName() == $level->getFolderName()){
+								$arenaName = $arena_->getName();
+								$arena = $arena_;
+							}
+						}
+						
+						if($arenaName == null){
+							$sender->sendMessage(TF::RED . "Arena not exist, try create Usage: /" . $cmdLabel . " create" . "!");
+							return false;
+						}
+						
+						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
+						$data = $arenas->get($arenaName);
+						$data["respawn"] = ["PX" => $sender->x, "PY" => $sender->y, "PZ" => $sender->z, "YAW" => $sender->yaw, "PITCH" => $sender->pitch];
+						$arenas->set($arenaName, $data);
+						$arenas->save();
+						if($arena !== null)
+							$arena->UpdateData($data);
+						$sender->sendMessage(TF::YELLOW . "Respawn has been set!");
+					break;
+					
+					case "list":
+						if(!$sender->hasPermission("ffa.command.admin"))
+							return false;
+						
+						$sender->sendMessage(TF::GREEN . "Arenas:");
+						foreach ($this->getArenas() as $arena){
+							$sender->sendMessage(TF::YELLOW . "- " . $arena->getName() . " => Players: " . count($arena->getPlayers()));
+						}
+					break;
+					
+					case "join":
+						if(isset($args[1])){
+							$player = $sender;
+							
+							if(isset($args[2])){
+								if(($pp = $this->getServer()->getPlayerExact($args[2])) !== null){
+									$player = $pp;
+								}
+							}
+							
+							if($this->joinArena($player, $args[1])){
+								return true;
+							}
+						} else {
+							if($this->joinRandomArena($sender)){
+								return true;
+							}
+						}
+					break;
+					
+					case "quit":
+						if(($arena = $this->getPlayerArena($sender)) !== null){
+							if($arena->quitPlayer($sender)){
+								return true;
+							}
+						} else {
+							$sender->sendMessage("You're not in a arena!");
+							return false;
+						}
+					break;
+				}
+			break;
+		}
+		return true;
+	}
+	
+	public function joinArena(Player $player, string $name): bool{
+		if(($arena = $this->getArena($name)) == null){
+			$player->sendMessage(TF::RED . "Arena not exist!");
+			return false;
+		}
+		
+		if($this->getPlayerArena($player) !== null){
+			$player->sendMessage(TF::RED . "You're already in arena!");
+			return false;
+		}
+		
+		if($arena->joinPlayer($player)){
+			return true;
+		}
+		return false;
+	}
+	
+	public function joinRandomArena(Player $player): bool{
+		if($this->getPlayerArena($player) !== null){
+			$player->sendMessage(TF::RED . "You're already in arena!");
+			return false;
+		}
+		
+		if(count($this->getArenas()) == 0){
+			$player->sendMessage(TF::RED . "No arenas found!");
+			return false;
+		}
+		
+		$all = [];
+		foreach ($this->getArenas() as $arena){
+			$all[] = $arena->getName();
+		}
+		
+		shuffle($all);
+		shuffle($all);
+		
+		$rand = mt_rand(0, (count($all) - 1));
+		
+		$final = null;
+		$i = 0;
+		foreach ($all as $aa){
+			if($i == $rand){
+				$final = $aa;
+			}
+			$i++;
+		}
+		
+		if($final !== null){
+			if($this->joinArena($player, $final)){
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	public function getPlayerArena(Player $player){
+		$arena = null;
+		
+		foreach ($this->getArenas() as $a){
+			if($a->inArena($player)){
+				$arena = $a;
+			}
+		}
+		
+		return $arena;
+	}
+	
+	public function onDrop(PlayerDropItemEvent $event){
+		$player = $event->getPlayer();
+		if($player instanceof Player){
+			if(($arena = $this->getPlayerArena($player)) !== null){
+				$event->setCancelled();
+			}
+		}
+	}
+	
+	public function onHunger(PlayerExhaustEvent $event){
+		$player = $event->getPlayer();
+		if($player instanceof Player){
+			if(($arena = $this->getPlayerArena($player)) !== null){
+				$event->setCancelled();
+			}
+		}
+	}
+	
+	public function onQuit(PlayerQuitEvent $event){
+		$player = $event->getPlayer();
+		if($player instanceof Player){
+			if(($arena = $this->getPlayerArena($player)) !== null){
+				$arena->quitPlayer($player);
+			}
+		}
+	}
+	
+	public function onLevelChange(EntityLevelChangeEvent $event){
+		$player = $event->getEntity();
+		if($player instanceof Player){
+			if(($arena = $this->getPlayerArena($player)) !== null){
+				$arena->quitPlayer($player);
+			}
+		}
+	}
+	
+	public function onPlace(BlockPlaceEvent $event){
+		$player = $event->getPlayer();
+		if($player instanceof Player){
+			if(($arena = $this->getPlayerArena($player)) !== null){
+				if(in_array($player->getGamemode(), [0, 2])){
+					$event->setCancelled(true);
+				}
+			}
+		}
+	}
+	
+	public function onBreak(BlockBreakEvent $event){
+		$player = $event->getPlayer();
+		if($player instanceof Player){
+			if(($arena = $this->getPlayerArena($player)) !== null){
+				if(in_array($player->getGamemode(), [0, 2])){
+					$event->setCancelled(true);
+				}
+			}
+		}
+	}
+	
+	public function onDamage(EntityDamageEvent $event): void{
+		$entity = $event->getEntity();
+		if($entity instanceof Player){
+			if(($arena = $this->getPlayerArena($entity)) !== null){
+				if($event->getCause() == 4){
+					$event->setCancelled();
+					return;
+				}
+				
+				if($entity->getHealth() <= $event->getFinalDamage()){
+					$arena->killPlayer($entity);
+					$event->setCancelled(true);
+					return;
+				}
+				
+				if($event instanceof EntityDamageByEntityEvent && ($damager = $event->getDamager()) instanceof Player){
+					if($arena->isProtected($entity)){
+						$event->setCancelled(true);
+					}
+				}
+			}
+		}
+	}
+	
+	public function addKill(Player $player, int $add = 1){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($player->getName())){
+			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		$p = $tops->get($player->getName());
+		$p["kills"] = ($p["kills"] + $add);
+		$tops->set($player->getName(), $p);
+		$tops->save();
+	}
+	
+	public function addKillByName(string $name, int $add = 1){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($name)){
+			$tops->set($name, ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		$p = $tops->get($name);
+		$p["kills"] = ($p["kills"] + $add);
+		$tops->set($name, $p);
+		$tops->save();
+	}
+	
+	public function addDeath(Player $player, int $add = 1){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($player->getName())){
+			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		$p = $tops->get($player->getName());
+		$p["deaths"] = ($p["deaths"] + $add);
+		$tops->set($player->getName(), $p);
+		$tops->save();
+	}
+	
+	public function addDeathByName(string $name, int $add = 1){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($name)){
+			$tops->set($name, ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		$p = $tops->get($name);
+		$p["deaths"] = ($p["deaths"] + $add);
+		$tops->set($name, $p);
+		$tops->save();
+	}
+	
+	public function getKills(Player $player){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($player->getName())){
+			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		return $tops->get($player->getName())["kills"];
+	}
+	
+	public function getKillsByName(string $name){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($name)){
+			$tops->set($name, ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		return $tops->get($name)["kills"];
+	}
+	
+	public function getDeaths(Player $player){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($player->getName())){
+			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		return $tops->get($player->getName())["deaths"];
+	}
+	
+	public function getDeathsByName(string $name){
+		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
+		if(!$tops->get($name)){
+			$tops->set($name, ["kills" => 0, "deaths" => 0]);
+			$tops->save();
+		}
+		
+		return $tops->get($name)["deaths"];
 	}
 }
