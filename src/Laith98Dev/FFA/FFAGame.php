@@ -271,8 +271,6 @@ class FFAGame
 	
 	public function killPlayer(Player $player): void{
 		$message = null;
-		if(!($player instanceof Player))
-			return;
 		$event = $player->getLastDamageCause();
 		
 		if($event == null)
@@ -294,7 +292,7 @@ class FFAGame
 		switch ($event->getCause()){
 			case EntityDamageEvent::CAUSE_ENTITY_ATTACK:
 				$damager = $event instanceof EntityDamageByEntityEvent ? $event->getDamager() : null;
-				if($damager !== null){
+				if($damager !== null && $damager instanceof Player){
 					$message = str_replace(["{PLAYER}", "{KILLER}", "&"], [$player->getName(), $damager->getName(), TF::ESCAPE], $cfg->get("death-attack-message"));
 					$this->plugin->addKill($damager);
 					
