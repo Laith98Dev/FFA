@@ -271,6 +271,8 @@ class FFAGame
 	
 	public function killPlayer(Player $player): void{
 		$message = null;
+		if(!($player instanceof Player))
+			return;
 		$event = $player->getLastDamageCause();
 		
 		if($event == null)
