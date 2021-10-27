@@ -326,8 +326,6 @@ class Main extends PluginBase implements Listener
 								return true;
 							}
 						}
-						
-						return false;
 					break;
 					
 					case "quit":
@@ -341,8 +339,6 @@ class Main extends PluginBase implements Listener
 						}
 					break;
 				}
-				
-				return true;
 			break;
 		}
 		return true;
