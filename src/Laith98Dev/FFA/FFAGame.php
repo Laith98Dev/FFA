@@ -48,6 +48,7 @@ use pocketmine\level\Position;
 use pocketmine\utils\{Config, TextFormat as TF};
 
 use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\event\entity\EntityDamageByEntityEvent;
 
 use pocketmine\network\mcpe\protocol\RemoveObjectivePacket;
 use pocketmine\network\mcpe\protocol\SetDisplayObjectivePacket;
@@ -290,7 +291,7 @@ class FFAGame
 		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
 		switch ($event->getCause()){
 			case EntityDamageEvent::CAUSE_ENTITY_ATTACK:
-				$damager = $event->getDamager();
+				$damager = $event instanceof EntityDamageByEntityEvent ? $event->getDamager() : null;
 				if($damager !== null){
 					$message = str_replace(["{PLAYER}", "{KILLER}", "&"], [$player->getName(), $damager->getName(), TF::ESCAPE], $cfg->get("death-attack-message"));
 					$this->plugin->addKill($damager);
