@@ -220,7 +220,7 @@ class FFAGame
 		
 		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
 		
-		$player->setGamemode(new GameMode("2", "2"));
+		$player->setGamemode(GameMode::ADVENTURE());
 		$player->setHealth(20);
 		$player->getHungerManager()->setFood(20);
 		
@@ -266,8 +266,8 @@ class FFAGame
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
 		$player->getEffects()->clear();
-		// $player->setGamemode($this->plugin->getServer()->getDefaultGamemode());
-		$player->setGamemode(new GameMode("0", "0"));
+		$player->setGamemode($this->plugin->getServer()->getGamemode());
+		//$player->setGamemode(GameMode::SURVIVAL());
 		$player->setHealth(20);
 		$player->getHungerManager()->setFood(20);
 		
@@ -290,7 +290,7 @@ class FFAGame
 		$player->getCraftingGrid()->clearAll();
 		$player->getEffects()->clear();
 		
-		$player->setGamemode(new GameMode("2", "2"));
+		$player->setGamemode(GameMode::ADVENTURE());
 		$player->setHealth(20);
 		$player->getHungerManager()->setFood(20);
 		$this->plugin->addDeath($player);
@@ -339,7 +339,7 @@ class FFAGame
 	}
 	
 	public function respawn(Player $player){
-		$player->setGamemode(new GameMode("2", "2"));
+		$player->setGamemode(GameMode::ADVENTURE());
 		$player->setHealth(20);
 		$player->getHungerManager()->setFood(20);
 		
