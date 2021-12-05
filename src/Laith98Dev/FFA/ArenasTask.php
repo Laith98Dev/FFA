@@ -46,7 +46,7 @@ class ArenasTask extends Task {
 		$this->plugin = $plugin;
 	}
 	
-	public function onRun(int $tick){
+	public function onRun(): void{
 		foreach ($this->plugin->getArenas() as $arena){
 			$arena->tick();
 		}
