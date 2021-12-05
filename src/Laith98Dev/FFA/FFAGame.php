@@ -177,10 +177,10 @@ class FFAGame
 	
 	public function getLevel(?string $name = null){
 		if($name == null){
-			$this->plugin->getServer()->loadLevel($this->getWorld());
-			return $this->plugin->getServer()->getWorldManager()->getLevelByName($this->getWorld());
+			$this->plugin->getServer()->getWorldManager()->loadWorld($this->getWorld());
+			return $this->plugin->getServer()->getWorldManager()->getWorldByName($this->getWorld());
 		}
-		return $this->plugin->getServer()->getWorldManager()->getLevelByName($name);
+		return $this->plugin->getServer()->getWorldManager()->getWorldByName($name);
 	}
 	
 	public function broadcast(string $message){
