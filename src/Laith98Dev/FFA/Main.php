@@ -51,10 +51,10 @@ use pocketmine\event\player\PlayerCommandPreprocessEvent;
 use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockPlaceEvent;
 
-use pocketmine\level\Position;
-use pocketmine\level\Location;
+use pocketmine\world\Position;
+use pocketmine\world\Location;
 
-use pocketmine\Player;
+use pocketmine\player\Player;
 use pocketmine\math\Vector3;
 
 use pocketmine\scheduler\Task;
@@ -103,7 +103,7 @@ class Main extends PluginBase implements Listener
 			}
 			
 			$this->getServer()->loadLevel($data["world"]);
-			if(($level = $this->getServer()->getLevelByName($data["world"])) !== null){
+			if(($level = $this->getServer()->getWorldManager()->getLevelByName($data["world"])) !== null){
 				$level->setTime(1000);
 				$level->stopTime();
 			}
@@ -197,7 +197,7 @@ class Main extends PluginBase implements Listener
 						}
 						
 						$arenaName = $args[1];
-						$level = $sender->getLevel();
+						$level = $sender->getWorld();
 						
 						if($level->getFolderName() == $this->getServer()->getDefaultLevel()->getFolderName()){
 							$sender->sendMessage(TF::RED . "You cannot create game in default level!");
@@ -244,7 +244,7 @@ class Main extends PluginBase implements Listener
 						if(!$sender->hasPermission("ffa.command.admin"))
 							return false;
 						
-						$level = $sender->getLevel();
+						$level = $sender->getWorld();
 						$arena = null;
 						$arenaName = null;
 						foreach ($this->getArenas() as $arena_){
@@ -416,7 +416,7 @@ class Main extends PluginBase implements Listener
 		$player = $event->getPlayer();
 		if($player instanceof Player){
 			if(($arena = $this->getPlayerArena($player)) !== null){
-				$event->setCancelled();
+				$event->cancel();
 			}
 		}
 	}
@@ -425,7 +425,7 @@ class Main extends PluginBase implements Listener
 		$player = $event->getPlayer();
 		if($player instanceof Player){
 			if(($arena = $this->getPlayerArena($player)) !== null){
-				$event->setCancelled();
+				$event->cancel();
 			}
 		}
 	}
@@ -453,7 +453,7 @@ class Main extends PluginBase implements Listener
 		if($player instanceof Player){
 			if(($arena = $this->getPlayerArena($player)) !== null){
 				if(in_array($player->getGamemode(), [0, 2])){
-					$event->setCancelled(true);
+					$event->cancel();
 				}
 			}
 		}
@@ -464,7 +464,7 @@ class Main extends PluginBase implements Listener
 		if($player instanceof Player){
 			if(($arena = $this->getPlayerArena($player)) !== null){
 				if(in_array($player->getGamemode(), [0, 2])){
-					$event->setCancelled(true);
+					$event->cancel();
 				}
 			}
 		}
@@ -475,19 +475,19 @@ class Main extends PluginBase implements Listener
 		if($entity instanceof Player){
 			if(($arena = $this->getPlayerArena($entity)) !== null){
 				if($event->getCause() == 4){
-					$event->setCancelled();
+					$event->cancel();
 					return;
 				}
 				
 				if($entity->getHealth() <= $event->getFinalDamage()){
 					$arena->killPlayer($entity);
-					$event->setCancelled(true);
+					$event->cancel();
 					return;
 				}
 				
 				if($event instanceof EntityDamageByEntityEvent && ($damager = $event->getDamager()) instanceof Player){
 					if($arena->isProtected($entity)){
-						$event->setCancelled(true);
+						$event->cancel();
 					}
 				}
 			}
