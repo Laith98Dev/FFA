@@ -102,8 +102,8 @@ class Main extends PluginBase implements Listener
 				continue;
 			}
 			
-			$this->getServer()->loadLevel($data["world"]);
-			if(($level = $this->getServer()->getWorldManager()->getLevelByName($data["world"])) !== null){
+			$this->getServer()->loadWorld($data["world"]);
+			if(($level = $this->getServer()->getWorldManager()->getWorldByName($data["world"])) !== null){
 				$level->setTime(1000);
 				$level->stopTime();
 			}
