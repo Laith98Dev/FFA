@@ -35,15 +35,15 @@ namespace Laith98Dev\FFA;
  * 	
  */
 
-use pocketmine\level\Location;
+use pocketmine\world\Location;
 
 use pocketmine\item\Item;
 
-use pocketmine\Player;
+use pocketmine\player\Player;
 
 use pocketmine\math\Vector3;
 
-use pocketmine\level\Position;
+use pocketmine\world\Position;
 
 use pocketmine\utils\{Config, TextFormat as TF};
 
@@ -178,9 +178,9 @@ class FFAGame
 	public function getLevel(?string $name = null){
 		if($name == null){
 			$this->plugin->getServer()->loadLevel($this->getWorld());
-			return $this->plugin->getServer()->getLevelByName($this->getWorld());
+			return $this->plugin->getServer()->getWorldManager()->getLevelByName($this->getWorld());
 		}
-		return $this->plugin->getServer()->getLevelByName($name);
+		return $this->plugin->getServer()->getWorldManager()->getLevelByName($name);
 	}
 	
 	public function broadcast(string $message){
