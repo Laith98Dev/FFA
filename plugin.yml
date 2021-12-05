@@ -7,6 +7,7 @@ author: Laith98Dev
 commands:
   ffa:
     description: FFA Commands
+    permission: ffa.command.admin
 
 permissions:
   ffa.command.admin:
