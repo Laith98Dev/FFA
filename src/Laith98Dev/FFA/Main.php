@@ -102,7 +102,7 @@ class Main extends PluginBase implements Listener
 				continue;
 			}
 			
-			$this->getServer()->loadWorld($data["world"]);
+			$this->getServer()->getWorldManager()->loadWorld($data["world"]);
 			if(($level = $this->getServer()->getWorldManager()->getWorldByName($data["world"])) !== null){
 				$level->setTime(1000);
 				$level->stopTime();
@@ -199,7 +199,7 @@ class Main extends PluginBase implements Listener
 						$arenaName = $args[1];
 						$level = $sender->getWorld();
 						
-						if($level->getFolderName() == $this->getServer()->getDefaultLevel()->getFolderName()){
+						if($level->getFolderName() == $this->getServer()->getWorldManager()->getDefaultLevel()->getFolderName()){
 							$sender->sendMessage(TF::RED . "You cannot create game in default level!");
 							return false;
 						}
@@ -273,7 +273,7 @@ class Main extends PluginBase implements Listener
 						if(!$sender->hasPermission("ffa.command.admin"))
 							return false;
 						
-						$level = $sender->getLevel();
+						$level = $sender->getWorld();
 						$arena = null;
 						$arenaName = null;
 						foreach ($this->getArenas() as $arena_){
