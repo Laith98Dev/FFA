@@ -260,7 +260,7 @@ class FFAGame
 		
 		$this->remove($player);
 		
-		$player->teleport($this->plugin->getServer()->getWorldManager()->getDefaultLevel()->getSafeSpawn());
+		$player->teleport($this->plugin->getServer()->getWorldManager()->getDefaultWorld()->getSafeSpawn());
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
@@ -372,7 +372,7 @@ class FFAGame
 			$player->sendMessage("You're now protected 3 seconds");
 		}
 		
-		$player->addTitle(TF::YELLOW . TF::BOLD . "Respawned");
+		$player->sendTitle(TF::YELLOW . TF::BOLD . "Respawned");
 	}
 	
 	public function tick(){
