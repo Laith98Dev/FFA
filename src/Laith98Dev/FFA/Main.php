@@ -67,7 +67,7 @@ class Main extends PluginBase implements Listener
 	/** @var FFAGame[] */
 	public $arenas = [];
 	
-	public function onEnable(){
+	public function onEnable(): void{
 		@mkdir($this->getDataFolder());
 		
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
