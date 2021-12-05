@@ -40,7 +40,7 @@ use pocketmine\event\Listener;
 
 use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
-use pocketmine\event\entity\EntityLevelChangeEvent;
+use pocketmine\event\entity\EntityTeleportEvent;
 use pocketmine\event\player\PlayerDropItemEvent;
 use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\event\player\PlayerMoveEvent;
@@ -52,7 +52,7 @@ use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockPlaceEvent;
 
 use pocketmine\world\Position;
-use pocketmine\world\Location;
+use pocketmine\entity\Location;
 
 use pocketmine\player\Player;
 use pocketmine\math\Vector3;
@@ -261,7 +261,7 @@ class Main extends PluginBase implements Listener
 						
 						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
 						$data = $arenas->get($arenaName);
-						$data["lobby"] = ["PX" => $sender->x, "PY" => $sender->y, "PZ" => $sender->z, "YAW" => $sender->yaw, "PITCH" => $sender->pitch];
+						$data["lobby"] = ["PX" => $sender->getLocation()->x, "PY" => $sender->getLocation()->y, "PZ" => $sender->getLocation()->z, "YAW" => $sender->getLocation()->yaw, "PITCH" => $sender->getLocation()->pitch];
 						$arenas->set($arenaName, $data);
 						$arenas->save();
 						if($arena !== null)
@@ -290,7 +290,7 @@ class Main extends PluginBase implements Listener
 						
 						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
 						$data = $arenas->get($arenaName);
-						$data["respawn"] = ["PX" => $sender->x, "PY" => $sender->y, "PZ" => $sender->z, "YAW" => $sender->yaw, "PITCH" => $sender->pitch];
+						$data["respawn"] = ["PX" => $sender->getLocation()->x, "PY" => $sender->getLocation()->y, "PZ" => $sender->getLocation()->z, "YAW" => $sender->getLocation()->yaw, "PITCH" => $sender->getLocation()->pitch];
 						$arenas->set($arenaName, $data);
 						$arenas->save();
 						if($arena !== null)
@@ -439,10 +439,12 @@ class Main extends PluginBase implements Listener
 		}
 	}
 	
-	public function onLevelChange(EntityLevelChangeEvent $event){
+	public function onLevelChange(EntityTeleportEvent $event){
 		$player = $event->getEntity();
+		$from = $event->getFrom();
+		$to = $event->getTo();
 		if($player instanceof Player){
-			if(($arena = $this->getPlayerArena($player)) !== null){
+			if(($arena = $this->getPlayerArena($player)) !== null && $to->getWorld()->getFolderName() !== $to->getWorld()->getFolderName()){
 				$arena->quitPlayer($player);
 			}
 		}
