@@ -226,7 +226,7 @@ class FFAGame
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->effectManager->clear();
+		$player->getEffects()->clear();
 		//$player->removeAllEffects();
 		
 		$player->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
@@ -260,11 +260,11 @@ class FFAGame
 		
 		$this->remove($player);
 		
-		$player->teleport($this->plugin->getServer()->getDefaultLevel()->getSafeSpawn());
+		$player->teleport($this->plugin->getServer()->getWorldManager()->getDefaultLevel()->getSafeSpawn());
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->effectManager->clear();
+		$player->getEffects()->clear();
 		// $player->setGamemode($this->plugin->getServer()->getDefaultGamemode());
 		$player->setGamemode(0);
 		$player->setHealth(20);
@@ -287,7 +287,7 @@ class FFAGame
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->effectManager->clear();
+		$player->getEffects()->clear();
 		
 		$player->setGamemode(2);
 		$player->setHealth(20);
@@ -308,7 +308,7 @@ class FFAGame
 					$damager->getInventory()->clearAll();
 					$damager->getArmorInventory()->clearAll();
 					$damager->getCraftingGrid()->clearAll();
-					$damager->effectManager->clear();
+					$damager->getEffects()->clear();
 					
 					$damager->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
 					$damager->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE, 0, 5));
@@ -345,12 +345,12 @@ class FFAGame
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->effectManager->clear();
+		$player->getEffects()->clear();
 		
-		$player->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD(), 0, 1));
-		$player->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE(), 0, 5));
-		$player->getInventory()->setItem(2, ItemFactory::getInstance()->get(ItemIds::BOW(), 0, 1));
-		$player->getInventory()->setItem(3, ItemFactory::getInstance()->get(ItemIds::ARROW(), 0, 15));
+		$player->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
+		$player->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE, 0, 5));
+		$player->getInventory()->setItem(2, ItemFactory::getInstance()->get(ItemIds::BOW, 0, 1));
+		$player->getInventory()->setItem(3, ItemFactory::getInstance()->get(ItemIds::ARROW, 0, 15));
 		
 		$player->getArmorInventory()->setHelmet(ItemFactory::getInstance()->get(ItemIds::IRON_HELMET));
 		$player->getArmorInventory()->setChestplate(ItemFactory::getInstance()->get(ItemIds::IRON_CHESTPLATE));
