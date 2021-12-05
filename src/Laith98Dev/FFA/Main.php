@@ -199,7 +199,7 @@ class Main extends PluginBase implements Listener
 						$arenaName = $args[1];
 						$level = $sender->getWorld();
 						
-						if($level->getFolderName() == $this->getServer()->getWorldManager()->getDefaultLevel()->getFolderName()){
+						if($level->getFolderName() == $this->getServer()->getWorldManager()->getDefaultWorld()->getFolderName()){
 							$sender->sendMessage(TF::RED . "You cannot create game in default level!");
 							return false;
 						}
