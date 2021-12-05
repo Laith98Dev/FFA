@@ -38,6 +38,9 @@ namespace Laith98Dev\FFA;
 use pocketmine\world\Location;
 
 use pocketmine\item\Item;
+use pocketmine\item\ItemFactory;
+use pocketmine\item\ItemIds;
+use pocketmine\item\VanillaItems;
 
 use pocketmine\player\Player;
 
@@ -137,7 +140,7 @@ class FFAGame
 		$pk->displayName = $displayName;
 		$pk->criteriaName = "dummy";
 		$pk->sortOrder = 0;
-		$player->sendDataPacket($pk);
+		$player->getNetworkSession()->sendDataPacket($pk);
 		$this->scoreboards[$player->getName()] = $objectiveName;
 	}
 
@@ -145,7 +148,7 @@ class FFAGame
 		$objectiveName = $this->getObjectiveName($player) ?? "ffa";
 		$pk = new RemoveObjectivePacket();
 		$pk->objectiveName = $objectiveName;
-		$player->sendDataPacket($pk);
+		$player->getNetworkSession()->sendDataPacket($pk);
 		unset($this->scoreboards[$player->getName()]);
 	}
 
@@ -168,7 +171,7 @@ class FFAGame
 		$pk = new SetScorePacket();
 		$pk->type = $pk::TYPE_CHANGE;
 		$pk->entries[] = $entry;
-		$player->sendDataPacket($pk);
+		$player->getNetworkSession()->sendDataPacket($pk);
 	}
 
 	public function getObjectiveName(Player $player): ?string{
@@ -218,22 +221,23 @@ class FFAGame
 		
 		$player->setGamemode(2);
 		$player->setHealth(20);
-		$player->setFood(20);
+		$player->getHungerManager()->setFood(20);
 		
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
+		$player->getEffectManager()->clear();
+		//$player->removeAllEffects();
 		
-		$player->getInventory()->setItem(0, Item::get(Item::IRON_SWORD, 0, 1));
-		$player->getInventory()->setItem(1, Item::get(Item::GOLDEN_APPLE, 0, 5));
-		$player->getInventory()->setItem(2, Item::get(Item::BOW, 0, 1));
-		$player->getInventory()->setItem(3, Item::get(Item::ARROW, 0, 15));
+		$player->getInventory()->setItem(0, ItemFactory::get(ItemIds::IRON_SWORD, 0, 1));
+		$player->getInventory()->setItem(1, ItemFactory::get(ItemIds::GOLDEN_APPLE, 0, 5));
+		$player->getInventory()->setItem(2, ItemFactory::get(ItemIds::BOW, 0, 1));
+		$player->getInventory()->setItem(3, ItemFactory::get(ItemIds::ARROW, 0, 15));
 		
-		$player->getArmorInventory()->setHelmet(Item::get(Item::IRON_HELMET));
-		$player->getArmorInventory()->setChestplate(Item::get(Item::IRON_CHESTPLATE));
-		$player->getArmorInventory()->setLeggings(Item::get(Item::IRON_LEGGINGS));
-		$player->getArmorInventory()->setBoots(Item::get(Item::IRON_BOOTS));
+		$player->getArmorInventory()->setHelmet(ItemFactory::get(ItemIds::IRON_HELMET));
+		$player->getArmorInventory()->setChestplate(ItemFactory::get(ItemIds::IRON_CHESTPLATE));
+		$player->getArmorInventory()->setLeggings(ItemFactory::get(ItemIds::IRON_LEGGINGS));
+		$player->getArmorInventory()->setBoots(ItemFactory::get(ItemIds::IRON_BOOTS));
 		
 		$this->players[$player->getName()] = $player;
 		
@@ -260,10 +264,11 @@ class FFAGame
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
-		$player->setGamemode($this->plugin->getServer()->getDefaultGamemode());
+		$player->getEffectManager()->clear();
+		// $player->setGamemode($this->plugin->getServer()->getDefaultGamemode());
+		$player->setGamemode(0);
 		$player->setHealth(20);
-		$player->setFood(20);
+		$player->getHungerManager()->setFood(20);
 		
 		$this->broadcast($player->getName() . " quit FFA!");
 		return true;
@@ -282,11 +287,11 @@ class FFAGame
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
+		$player->getEffectManager()->clear();
 		
 		$player->setGamemode(2);
 		$player->setHealth(20);
-		$player->setFood(20);
+		$player->getHungerManager()->setFood(20);
 		$this->plugin->addDeath($player);
 		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
 		switch ($event->getCause()){
@@ -298,22 +303,22 @@ class FFAGame
 					
 					$damager->sendPopup(TF::YELLOW . "+1 Kill");
 					$damager->setHealth(20);
-					$damager->setFood(20);
+					$damager->getHungerManager()->setFood(20);
 					
 					$damager->getInventory()->clearAll();
 					$damager->getArmorInventory()->clearAll();
 					$damager->getCraftingGrid()->clearAll();
-					$damager->removeAllEffects();
+					$damager->getEffectManager()->clear();
 					
-					$damager->getInventory()->setItem(0, Item::get(Item::IRON_SWORD, 0, 1));
-					$damager->getInventory()->setItem(1, Item::get(Item::GOLDEN_APPLE, 0, 5));
-					$damager->getInventory()->setItem(2, Item::get(Item::BOW, 0, 1));
-					$damager->getInventory()->setItem(3, Item::get(Item::ARROW, 0, 15));
+					$damager->getInventory()->setItem(0, ItemFactory::get(ItemIds::IRON_SWORD, 0, 1));
+					$damager->getInventory()->setItem(1, ItemFactory::get(ItemIds::GOLDEN_APPLE, 0, 5));
+					$damager->getInventory()->setItem(2, ItemFactory::get(ItemIds::BOW, 0, 1));
+					$damager->getInventory()->setItem(3, ItemFactory::get(ItemIds::ARROW, 0, 15));
 					
-					$damager->getArmorInventory()->setHelmet(Item::get(Item::IRON_HELMET));
-					$damager->getArmorInventory()->setChestplate(Item::get(Item::IRON_CHESTPLATE));
-					$damager->getArmorInventory()->setLeggings(Item::get(Item::IRON_LEGGINGS));
-					$damager->getArmorInventory()->setBoots(Item::get(Item::IRON_BOOTS));
+					$damager->getArmorInventory()->setHelmet(ItemFactory::get(ItemIds::IRON_HELMET));
+					$damager->getArmorInventory()->setChestplate(ItemFactory::get(ItemIds::IRON_CHESTPLATE));
+					$damager->getArmorInventory()->setLeggings(ItemFactory::get(ItemIds::IRON_LEGGINGS));
+					$damager->getArmorInventory()->setBoots(ItemFactory::get(ItemIds::IRON_BOOTS));
 				}
 			break;
 			
@@ -335,22 +340,22 @@ class FFAGame
 	public function respawn(Player $player){
 		$player->setGamemode(2);
 		$player->setHealth(20);
-		$player->setFood(20);
+		$player->getHungerManager()->setFood(20);
 		
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
-		$player->removeAllEffects();
+		$player->getEffectManager()->clear();
 		
-		$player->getInventory()->setItem(0, Item::get(Item::IRON_SWORD, 0, 1));
-		$player->getInventory()->setItem(1, Item::get(Item::GOLDEN_APPLE, 0, 5));
-		$player->getInventory()->setItem(2, Item::get(Item::BOW, 0, 1));
-		$player->getInventory()->setItem(3, Item::get(Item::ARROW, 0, 15));
+		$player->getInventory()->setItem(0, ItemFactory::get(ItemIds::IRON_SWORD(), 0, 1));
+		$player->getInventory()->setItem(1, ItemFactory::get(ItemIds::GOLDEN_APPLE(), 0, 5));
+		$player->getInventory()->setItem(2, ItemFactory::get(ItemIds::BOW(), 0, 1));
+		$player->getInventory()->setItem(3, ItemFactory::get(ItemIds::ARROW(), 0, 15));
 		
-		$player->getArmorInventory()->setHelmet(Item::get(Item::IRON_HELMET));
-		$player->getArmorInventory()->setChestplate(Item::get(Item::IRON_CHESTPLATE));
-		$player->getArmorInventory()->setLeggings(Item::get(Item::IRON_LEGGINGS));
-		$player->getArmorInventory()->setBoots(Item::get(Item::IRON_BOOTS));
+		$player->getArmorInventory()->setHelmet(ItemFactory::get(ItemIds::IRON_HELMET));
+		$player->getArmorInventory()->setChestplate(ItemFactory::get(ItemIds::IRON_CHESTPLATE));
+		$player->getArmorInventory()->setLeggings(ItemFactory::get(ItemIds::IRON_LEGGINGS));
+		$player->getArmorInventory()->setBoots(ItemFactory::get(ItemIds::IRON_BOOTS));
 		
 		$respawn = $this->getRespawn();
 		$x = $respawn["PX"];
