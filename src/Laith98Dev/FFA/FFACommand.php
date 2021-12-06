@@ -52,6 +52,7 @@ class FFACommand extends Command implements PluginOwned
 	
 	public function init(Main $plugin) : void{
 		$this->plugin = $plugin;
+		$this->setPermission("ffa.command.admin");
 	}
 	
 	public function getOwningPlugin() : Plugin{
@@ -73,7 +74,6 @@ class FFACommand extends Command implements PluginOwned
 			case "help":
 				$sender->sendMessage(TF::YELLOW . "========================");
 				if($sender->hasPermission("ffa.command.admin")){
-					var_dump("yes have");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " help");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " create");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " remove");
