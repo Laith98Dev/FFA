@@ -52,7 +52,7 @@ class FFACommand extends Command implements PluginOwned
 	
 	public function init(Main $plugin) : void{
 		$this->plugin = $plugin;
-		$this->setPermission("ffa.command.admin");
+		//$this->setPermission("ffa.command.admin");
 	}
 	
 	public function getOwningPlugin() : Plugin{
