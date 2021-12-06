@@ -81,6 +81,13 @@ class Main extends PluginBase implements Listener
 			"death-void-message" => "&c{PLAYER} &ffall into void"
 		]));
 		
+		$map = $this->getServer()->getCommandMap();
+		
+		$ffac = new FFACommand("ffa", "FFA Commands", null, ["ffa"]);
+		$ffac->init($this);
+		
+		$map->register($this->getName(), $ffac);
+		
 		$this->reloadCheck();// TODO: quit all player when server reload^^
 		$this->loadArenas();
 	}
@@ -157,191 +164,6 @@ class Main extends PluginBase implements Listener
 	
 	public function getArena(string $name){
 		return isset($this->arenas[$name]) ? $this->arenas[$name] : null;
-	}
-	
-	public function onCommand(CommandSender $sender, Command $cmd, string $cmdLabel, array $args): bool{
-		switch ($cmd->getName()){
-			case "ffa":
-				if(!($sender instanceof Player)){
-					$sender->sendMessage("run command in-game only");
-					return false;
-				}
-				
-				if(!isset($args[0])){
-					$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " help");
-					return false;
-				}
-				
-				switch ($args[0]){
-					case "help":
-						$sender->sendMessage(TF::YELLOW . "========================");
-						if($sender->hasPermission("ffa.command.admin")){
-							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " help");
-							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " create");
-							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " remove");
-							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " setlobby");
-							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " setrespawn");
-							$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " list");
-						}
-						$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " join");
-						$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " quit");
-						$sender->sendMessage(TF::YELLOW . "========================");
-					break;
-					
-					case "create":
-						if(!$sender->hasPermission("ffa.command.admin"))
-							return false;
-						if(!isset($args[1])){
-							$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " create <arenaName>");
-							return false;
-						}
-						
-						$arenaName = $args[1];
-						$level = $sender->getWorld();
-						
-						if($level->getFolderName() == $this->getServer()->getWorldManager()->getDefaultWorld()->getFolderName()){
-							$sender->sendMessage(TF::RED . "You cannot create game in default level!");
-							return false;
-						}
-						
-						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
-						
-						if($arenas->get($arenaName)){
-							$sender->sendMessage(TF::RED . "Arena already exist!");
-							return false;
-						}
-						
-						$data = ["name" => $arenaName, "world" => $level->getFolderName(), "lobby" => [], "respawn" => []];
-						if($this->addArena($data)){
-							$sender->sendMessage(TF::YELLOW . "Arena created!");
-							return true;
-						}
-					break;
-					
-					case "remove":
-						if(!$sender->hasPermission("ffa.command.admin"))
-							return false;
-						
-						if(!isset($args[1])){
-							$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " remove <arenaName>");
-							return false;
-						}
-						
-						$arenaName = $args[1];
-						
-						if(!isset($this->arenas[$arenaName])){
-							$sender->sendMessage(TF::RED . "Arena not exist");
-							return false;
-						}
-						
-						if($this->removeArena($arenaName)){
-							$sender->sendMessage(TF::GREEN . "Arena deleted!");
-							return true;
-						}
-					break;
-					
-					case "setlobby":
-						if(!$sender->hasPermission("ffa.command.admin"))
-							return false;
-						
-						$level = $sender->getWorld();
-						$arena = null;
-						$arenaName = null;
-						foreach ($this->getArenas() as $arena_){
-							if($arena_->getName() == $level->getFolderName()){
-								$arenaName = $arena_->getName();
-								$arena = $arena_;
-							}
-						}
-						
-						if($arenaName == null){
-							$sender->sendMessage(TF::RED . "Arena not exist, try create Usage: /" . $cmdLabel . " create" . "!");
-							return false;
-						}
-						
-						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
-						$data = $arenas->get($arenaName);
-						$data["lobby"] = ["PX" => $sender->getLocation()->x, "PY" => $sender->getLocation()->y, "PZ" => $sender->getLocation()->z, "YAW" => $sender->getLocation()->yaw, "PITCH" => $sender->getLocation()->pitch];
-						$arenas->set($arenaName, $data);
-						$arenas->save();
-						if($arena !== null)
-							$arena->UpdateData($data);
-						$sender->sendMessage(TF::YELLOW . "Lobby has been set!");
-					break;
-					
-					case "setrespawn":
-						if(!$sender->hasPermission("ffa.command.admin"))
-							return false;
-						
-						$level = $sender->getWorld();
-						$arena = null;
-						$arenaName = null;
-						foreach ($this->getArenas() as $arena_){
-							if($arena_->getName() == $level->getFolderName()){
-								$arenaName = $arena_->getName();
-								$arena = $arena_;
-							}
-						}
-						
-						if($arenaName == null){
-							$sender->sendMessage(TF::RED . "Arena not exist, try create Usage: /" . $cmdLabel . " create" . "!");
-							return false;
-						}
-						
-						$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
-						$data = $arenas->get($arenaName);
-						$data["respawn"] = ["PX" => $sender->getLocation()->x, "PY" => $sender->getLocation()->y, "PZ" => $sender->getLocation()->z, "YAW" => $sender->getLocation()->yaw, "PITCH" => $sender->getLocation()->pitch];
-						$arenas->set($arenaName, $data);
-						$arenas->save();
-						if($arena !== null)
-							$arena->UpdateData($data);
-						$sender->sendMessage(TF::YELLOW . "Respawn has been set!");
-					break;
-					
-					case "list":
-						if(!$sender->hasPermission("ffa.command.admin"))
-							return false;
-						
-						$sender->sendMessage(TF::GREEN . "Arenas:");
-						foreach ($this->getArenas() as $arena){
-							$sender->sendMessage(TF::YELLOW . "- " . $arena->getName() . " => Players: " . count($arena->getPlayers()));
-						}
-					break;
-					
-					case "join":
-						if(isset($args[1])){
-							$player = $sender;
-							
-							if(isset($args[2])){
-								if(($pp = $this->getServer()->getPlayerExact($args[2])) !== null){
-									$player = $pp;
-								}
-							}
-							
-							if($this->joinArena($player, $args[1])){
-								return true;
-							}
-						} else {
-							if($this->joinRandomArena($sender)){
-								return true;
-							}
-						}
-					break;
-					
-					case "quit":
-						if(($arena = $this->getPlayerArena($sender)) !== null){
-							if($arena->quitPlayer($sender)){
-								return true;
-							}
-						} else {
-							$sender->sendMessage("You're not in a arena!");
-							return false;
-						}
-					break;
-				}
-			break;
-		}
-		return true;
 	}
 	
 	public function joinArena(Player $player, string $name): bool{
