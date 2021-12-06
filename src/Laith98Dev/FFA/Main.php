@@ -83,7 +83,7 @@ class Main extends PluginBase implements Listener
 		
 		$map = $this->getServer()->getCommandMap();
 		
-		$ffac = new FFACommand("ffa", "FFA Commands", null, ["ffa"]);
+		$ffac = new FFACommand("ffa", "FFA Commands", "ffa.command.admin", ["ffa"]);
 		$ffac->init($this);
 		
 		$map->register($this->getName(), $ffac);
