@@ -3,3 +3,11 @@ api: [4.0.0]
 version: 1.0.0
 main: Laith98Dev\FFA\Main
 author: Laith98Dev
+
+permissions:
+  ffa.command.admin:
+    default: op 
+  ffa.command.join:
+    default: true
+  ffa.command.quit:
+    default: true
