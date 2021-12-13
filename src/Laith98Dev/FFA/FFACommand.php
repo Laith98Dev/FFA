@@ -73,6 +73,7 @@ class FFACommand extends Command implements PluginOwned
 		switch ($args[0]){
 			case "help":
 				$sender->sendMessage(TF::YELLOW . "========================");
+				//if($this->testPermission($sender)){
 				if($sender->hasPermission("ffa.command.admin")){
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " help");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " create");
@@ -207,6 +208,8 @@ class FFACommand extends Command implements PluginOwned
 			break;
 			
 			case "join":
+				if(!$sender->hasPermission("ffa.command.join"))
+					return false;
 				if(isset($args[1])){
 					$player = $sender;
 					
@@ -227,6 +230,8 @@ class FFACommand extends Command implements PluginOwned
 			break;
 			
 			case "quit":
+				if(!$sender->hasPermission("ffa.command.quit"))
+					return false;
 				if(($arena = $this->plugin->getPlayerArena($sender)) !== null){
 					if($arena->quitPlayer($sender)){
 						return true;
