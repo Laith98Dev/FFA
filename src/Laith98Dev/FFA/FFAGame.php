@@ -35,7 +35,7 @@ namespace Laith98Dev\FFA;
  * 	
  */
 
-use pocketmine\world\Location;
+use pocketmine\entity\Location;
 
 use pocketmine\item\Item;
 use pocketmine\item\ItemFactory;
@@ -212,11 +212,11 @@ class FFAGame
 			return false;
 		}
 		
-		$x = $lobby["PX"];
-		$y = $lobby["PY"];
-		$z = $lobby["PZ"];
-		$yaw = $lobby["YAW"];
-		$pitch = $lobby["PITCH"];
+		$x = floatval($lobby["PX"]);
+		$y = floatval($lobby["PY"]);
+		$z = floatval($lobby["PZ"]);
+		$yaw = floatval($lobby["YAW"]);
+		$pitch = floatval($lobby["PITCH"]);
 		
 		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
 		
@@ -359,11 +359,11 @@ class FFAGame
 		$player->getArmorInventory()->setBoots(ItemFactory::getInstance()->get(ItemIds::IRON_BOOTS));
 		
 		$respawn = $this->getRespawn();
-		$x = $respawn["PX"];
-		$y = $respawn["PY"];
-		$z = $respawn["PZ"];
-		$yaw = $respawn["YAW"];
-		$pitch = $respawn["PITCH"];
+		$x = floatval($respawn["PX"]);
+		$y = floatval($respawn["PY"]);
+		$z = floatval($respawn["PZ"]);
+		$yaw = floatval($respawn["YAW"]);
+		$pitch = floatval($respawn["PITCH"]);
 		
 		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
 		
@@ -383,7 +383,7 @@ class FFAGame
 			$this->setLine($player, 1, " ");
 			$this->setLine($player, 2, " Players: " . TF::YELLOW . count($this->getPlayers()) . "  ");
 			$this->setLine($player, 3, "  ");
-			$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getWorld() . "  ");
+			$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getName() . "  ");
 			$this->setLine($player, 5, "   ");
 			$this->setLine($player, 6, " Kills: " . TF::YELLOW . $this->plugin->getKills($player) . " ");
 			$this->setLine($player, 7, " Deaths: " . TF::YELLOW . $this->plugin->getDeaths($player) . " ");
