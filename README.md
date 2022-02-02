@@ -11,6 +11,7 @@
 
 # the configure
 - `scoreboardIp` : you can set to your server ip to show it in the game scoreboard
+- `banned-commands`: you can add the commands who want to banned in the game
 - `death-respawn-inMap` : that's will return the player to respawn position after death, you can set to `true` or `false`
 - `join-and-respawn-protected` : that's will protect the player for 3 seconds after join and respawn
 - `death-attack-message` : here you can set the death message when killed by someone
