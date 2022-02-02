@@ -73,13 +73,7 @@ class Main extends PluginBase implements Listener
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 		$this->getScheduler()->scheduleRepeatingTask(new ArenasTask($this), 20);
 		
-		(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
-			"scoreboardIp" => "play.example.net",
-			"death-respawn-inMap" => true,
-			"join-and-respawn-protected" => true,
-			"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
-			"death-void-message" => "&c{PLAYER} &ffall into void"
-		]));
+		$this->initConfig();// create the config and check data.
 		
 		$map = $this->getServer()->getCommandMap();
 		
@@ -88,8 +82,47 @@ class Main extends PluginBase implements Listener
 		
 		$map->register($this->getName(), $ffac);
 		
-		$this->reloadCheck();// TODO: quit all player when server reload^^
+		// $this->reloadCheck();// TODO: quit all player when server reload^^/ i don't need it now because reload command has been removed.
 		$this->loadArenas();
+	}
+	
+	public function initConfig(){
+		if(!is_file($this->getDataFolder() . "config.yml")){
+			(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
+				"scoreboardIp" => "play.example.net",
+				"banned-commands" => ["/kill"],
+				"death-respawn-inMap" => true,
+				"join-and-respawn-protected" => true,
+				"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
+				"death-void-message" => "&c{PLAYER} &ffall into void"
+			]));
+		} else {
+			$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML);
+			$all = $cfg->getAll();
+			foreach ([
+				"scoreboardIp",
+				"banned-commands",
+				"death-respawn-inMap",
+				"join-and-respawn-protected",
+				"death-attack-message",
+				"death-void-message"
+			] as $key){
+				if(!isset($all[$key])){
+					rename($this->getDataFolder() . "config.yml", $this->getDataFolder() . "config_old.yml");
+					
+					(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
+						"scoreboardIp" => "play.example.net",
+						"banned-commands" => ["/kill"],
+						"death-respawn-inMap" => true,
+						"join-and-respawn-protected" => true,
+						"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
+						"death-void-message" => "&c{PLAYER} &ffall into void"
+					]));
+					
+					break;
+				}
+			}
+		}
 	}
 	
 	public function reloadCheck(){
@@ -266,7 +299,7 @@ class Main extends PluginBase implements Listener
 		$from = $event->getFrom();
 		$to = $event->getTo();
 		if($player instanceof Player){
-			if(($arena = $this->getPlayerArena($player)) !== null && $to->getWorld()->getFolderName() !== $to->getWorld()->getFolderName()){
+			if(($arena = $this->getPlayerArena($player)) !== null && $from->getWorld()->getFolderName() !== $to->getWorld()->getFolderName()){
 				$arena->quitPlayer($player);
 			}
 		}
@@ -314,6 +347,20 @@ class Main extends PluginBase implements Listener
 						$event->cancel();
 					}
 				}
+			}
+		}
+	}
+	
+	public function onCommandPreprocess(PlayerCommandPreprocessEvent $event){
+		$player = $event->getPlayer();
+		$command = $event->getMessage();
+		if($player instanceof Player){
+			$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML);
+			$banned = $cfg->get("banned-commands", []);
+			$banned = array_map("strtolower", $banned);
+			if(in_array(strtolower(explode(" ", $command, 2)[0]), $banned)) {
+				$player->sendMessage(TF::RED . "you cannot use this command here!");
+				$event->cancel();
 			}
 		}
 	}
