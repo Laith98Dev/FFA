@@ -147,7 +147,8 @@ class FFACommand extends Command implements PluginOwned
 				$arena = null;
 				$arenaName = null;
 				foreach ($this->plugin->getArenas() as $arena_){
-					if($arena_->getName() == $level->getFolderName()){
+					// if($arena_->getName() == $level->getFolderName()){
+					if($arena_->getWorld() == $level->getFolderName()){// done fixed arena not exist, if the arena name not same world name
 						$arenaName = $arena_->getName();
 						$arena = $arena_;
 					}
@@ -176,7 +177,8 @@ class FFACommand extends Command implements PluginOwned
 				$arena = null;
 				$arenaName = null;
 				foreach ($this->plugin->getArenas() as $arena_){
-					if($arena_->getName() == $level->getFolderName()){
+					// if($arena_->getName() == $level->getFolderName()){
+					if($arena_->getWorld() == $level->getFolderName()){// done fixed arena not exist, if the arena name not same world name
 						$arenaName = $arena_->getName();
 						$arena = $arena_;
 					}
