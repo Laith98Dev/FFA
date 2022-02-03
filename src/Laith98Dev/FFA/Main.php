@@ -55,6 +55,7 @@ use pocketmine\world\Position;
 use pocketmine\entity\Location;
 
 use pocketmine\player\Player;
+use pocketmine\player\GameMode;
 use pocketmine\math\Vector3;
 
 use pocketmine\scheduler\Task;
@@ -309,7 +310,8 @@ class Main extends PluginBase implements Listener
 		$player = $event->getPlayer();
 		if($player instanceof Player){
 			if(($arena = $this->getPlayerArena($player)) !== null){
-				if(in_array($player->getGamemode(), [0, 2])){
+				// if(in_array($player->getGamemode(), [0, 2])){
+				if($player->getGamemode()->equals(GameMode::SURVIVAL()) || $player->getGamemode()->equals(GameMode::ADVENTURE())){
 					$event->cancel();
 				}
 			}
@@ -320,7 +322,8 @@ class Main extends PluginBase implements Listener
 		$player = $event->getPlayer();
 		if($player instanceof Player){
 			if(($arena = $this->getPlayerArena($player)) !== null){
-				if(in_array($player->getGamemode(), [0, 2])){
+				// if(in_array($player->getGamemode(), [0, 2])){
+				if($player->getGamemode()->equals(GameMode::SURVIVAL()) || $player->getGamemode()->equals(GameMode::ADVENTURE())){
 					$event->cancel();
 				}
 			}
@@ -358,7 +361,7 @@ class Main extends PluginBase implements Listener
 			$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML);
 			$banned = $cfg->get("banned-commands", []);
 			$banned = array_map("strtolower", $banned);
-			if(in_array(strtolower(explode(" ", $command, 2)[0]), $banned)) {
+			if(($arena = $this->getPlayerArena($player)) !== null && in_array(strtolower(explode(" ", $command, 2)[0]), $banned)) {
 				$player->sendMessage(TF::RED . "you cannot use this command here!");
 				$event->cancel();
 			}
