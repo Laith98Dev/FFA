@@ -40,11 +40,11 @@ use Laith98Dev\FFA\utils\SQLKeyStorer;
 
 use poggit\libasynql\libasynql;
 use poggit\libasynql\SqlError;
-use poggit\libasynql\base\DataConnectorImpl;
+use poggit\libasynql\DataConnector;
 
 class DefaultProvider {
 
-    private DataConnectorImpl $db;
+    private DataConnector $db;
 
     public function __construct(
         private Main $plugin
