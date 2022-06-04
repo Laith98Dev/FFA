@@ -12,11 +12,11 @@ namespace Laith98Dev\FFA;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2021 Laith98Dev
+ *	Copyright (C) 2022 Laith98Dev
  *  
  *	Youtube: Laith Youtuber
  *	Discord: Laith98Dev#0695
- *	Gihhub: Laith98Dev
+ *	Github: Laith98Dev
  *	Email: help@laithdev.tk
  *	Donate: https://paypal.me/Laith113
  *
@@ -35,6 +35,15 @@ namespace Laith98Dev\FFA;
  * 	
  */
 
+use Laith98Dev\FFA\commands\FFACommand;
+use Laith98Dev\FFA\game\FFAGame;
+use Laith98Dev\FFA\providers\DefaultProvider;
+use Laith98Dev\FFA\tasks\ArenasTask;
+use Laith98Dev\FFA\utils\SQLKeyStorer;
+
+use pocketmine\data\bedrock\EnchantmentIdMap;
+use pocketmine\data\bedrock\EnchantmentIds;
+
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
 
@@ -42,158 +51,354 @@ use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\entity\EntityTeleportEvent;
 use pocketmine\event\player\PlayerDropItemEvent;
-use pocketmine\event\player\PlayerInteractEvent;
-use pocketmine\event\player\PlayerMoveEvent;
 use pocketmine\event\player\PlayerQuitEvent;
-use pocketmine\event\player\PlayerRespawnEvent;
 use pocketmine\event\player\PlayerExhaustEvent;
 use pocketmine\event\player\PlayerCommandPreprocessEvent;
 use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockPlaceEvent;
 
-use pocketmine\world\Position;
-use pocketmine\entity\Location;
+use pocketmine\item\enchantment\EnchantmentInstance;
+use pocketmine\item\ItemFactory;
+use pocketmine\item\ItemIds;
 
 use pocketmine\player\Player;
 use pocketmine\player\GameMode;
-use pocketmine\math\Vector3;
-
-use pocketmine\scheduler\Task;
-use pocketmine\command\{CommandSender, Command};
 
 use pocketmine\utils\{Config, TextFormat as TF};
 
 class Main extends PluginBase implements Listener
 {
 	/** @var FFAGame[] */
-	public $arenas = [];
+	private array $arenas = [];
+
+	private DefaultProvider $provider;
+
+	private array $defaultData = [
+		"scoreboardIp" => "play.example.net",
+		"banned-commands" => ["/kill"],
+		"death-respawn-inMap" => true,
+		"join-and-respawn-protected" => true,
+		"protected-time" => 3,
+		"protected-message" => "&eYou're now protected for &c{TIME} &eseconds",
+		"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
+		"death-void-message" => "&c{PLAYER} &ffall into void",
+		"respawn-message" => "&eRespawned",
+		"join-message" => "&7{PLAYER} &ejoined to game.",
+		"leave-message" => "&7{PLAYER} &ehas leave to game.",
+		"kits" => [
+			"default" => [
+				"slot-0" => [
+					"id" => ItemIds::IRON_SWORD,
+					"meta" => 0,
+					"count" => 1,
+					"enchants" => []
+				],
+				"slot-1" => [
+					"id" => ItemIds::GOLDEN_APPLE,
+					"meta" => 0,
+					"count" => 5,
+					"enchants" => []
+				],
+				"slot-2" => [
+					"id" => ItemIds::BOW,
+					"meta" => 0,
+					"count" => 1,
+					"enchants" => []
+				],
+				"slot-3" => [
+					"id" => ItemIds::ARROW,
+					"meta" => 0,
+					"count" => 15,
+					"enchants" => []
+				],
+				"helmet" => [
+					"id" => ItemIds::IRON_HELMET,
+					"enchants" => []
+				],
+				"chestplate" => [
+					"id" => ItemIds::IRON_CHESTPLATE,
+					"enchants" => [
+						"id-" . EnchantmentIds::PROTECTION => [
+							"level" => 2
+						]
+					]
+				],
+				"leggings" => [
+					"id" => ItemIds::IRON_LEGGINGS,
+					"enchants" => []
+				],
+				"boots" => [
+					"id" => ItemIds::IRON_BOOTS,
+					"enchants" => []
+				]
+			]
+		],
+		"kills-messages" => [
+			"&eYou're the boss, you've got {KILLS} kills :).",
+			"&eGood one you've now reached a {KILLS} kills :D.",
+			"&eYou are now a great warrior, you've got {KILLS} kills ;D."
+		],
+		"scoreboard-title" => "FFA",
+		"provider" => "sqlite",
+		"database" => [
+			"type" => "sqlite",
+			"sqlite" => [
+				"file" => "arenas.sql"
+			],
+			"mysql" => [
+				"host" => "127.0.0.1",
+				"username" => "root",
+				"password" => "",
+				"schema" => "your_schema"
+			],
+			"worker-limit" => 1
+		]
+	];
+
+	private array $kits = [];
 	
 	public function onEnable(): void{
 		@mkdir($this->getDataFolder());
 		
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
+
 		$this->getScheduler()->scheduleRepeatingTask(new ArenasTask($this), 20);
+
+		$this->getServer()->getCommandMap()->register($this->getName(), new FFACommand($this));
 		
-		$this->initConfig();// create the config and check data.
-		
-		$map = $this->getServer()->getCommandMap();
-		
-		$ffac = new FFACommand("ffa", "FFA Commands", "ffa.command.admin", ["ffa"]);
-		$ffac->init($this);
-		
-		$map->register($this->getName(), $ffac);
-		
-		// $this->reloadCheck();// TODO: quit all player when server reload^^/ i don't need it now because reload command has been removed.
+		$this->initConfig();
+		$this->setProvider();
+		$this->loadKits();
 		$this->loadArenas();
 	}
 	
 	public function initConfig(){
 		if(!is_file($this->getDataFolder() . "config.yml")){
-			(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
-				"scoreboardIp" => "play.example.net",
-				"banned-commands" => ["/kill"],
-				"death-respawn-inMap" => true,
-				"join-and-respawn-protected" => true,
-				"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
-				"death-void-message" => "&c{PLAYER} &ffall into void"
-			]));
+			(new Config($this->getDataFolder() . "config.yml", Config::YAML, $this->defaultData));
 		} else {
 			$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML);
 			$all = $cfg->getAll();
-			foreach ([
-				"scoreboardIp",
-				"banned-commands",
-				"death-respawn-inMap",
-				"join-and-respawn-protected",
-				"death-attack-message",
-				"death-void-message"
-			] as $key){
+			foreach (array_keys($this->defaultData) as $key){
 				if(!isset($all[$key])){
 					rename($this->getDataFolder() . "config.yml", $this->getDataFolder() . "config_old.yml");
 					
-					(new Config($this->getDataFolder() . "config.yml", Config::YAML, [
-						"scoreboardIp" => "play.example.net",
-						"banned-commands" => ["/kill"],
-						"death-respawn-inMap" => true,
-						"join-and-respawn-protected" => true,
-						"death-attack-message" => "&e{PLAYER} &fwas killed by &c{KILLER}",
-						"death-void-message" => "&c{PLAYER} &ffall into void"
-					]));
+					(new Config($this->getDataFolder() . "config.yml", Config::YAML, $this->defaultData));
 					
 					break;
 				}
 			}
 		}
 	}
-	
-	public function reloadCheck(){
-		foreach ($this->arenas as $arena){
-			foreach ($arena->getPlayers() as $player){
-				$arena->quitPlayer($player);
+
+	public function setProvider(){
+		$prov = $this->getConfig()->get("provider");
+		$provider = match ($prov){
+			"sqlite" => new DefaultProvider($this),
+			default => null
+		};
+
+		if($provider === null){
+			$this->getLogger()->error("Invalid provider, expected 'sqlite', but got '" . strval($prov) . "'");
+			$this->getServer()->getPluginManager()->disablePlugin($this);
+			return;
+		}
+
+		$this->provider = $provider;
+	}
+
+	public function loadKits(){
+		$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML, $this->defaultData);
+		$kits = $cfg->get("kits", []);
+
+		foreach ($kits as $name => $data){
+			$items = [];
+			$armors = [];
+
+			foreach ($data as $slot_ => $slotData){
+				if(strpos($slot_, "slot-") !== false){
+					$slot = str_replace("slot-", "", $slot_);
+					foreach (["id", "meta", "count", "enchants"] as $key){
+						if(!isset($slotData[$key])){
+							$this->getLogger()->error("Failed to load default kit, Error: Missing a required key of slot #" . $slot . " (" . $key . ")");
+							$this->getServer()->getPluginManager()->disablePlugin($this);
+							continue;
+						}
+					}
+
+					$id = $slotData["id"] ?? 0;
+					$meta = $slotData["meta"] ?? 0;
+					$count = $slotData["count"] ?? 1;
+					$enchants = $slotData["enchants"] ?? [];
+
+					$item = ItemFactory::getInstance()->get($id, $meta, $count);
+
+					if(count($enchants) > 0){
+						foreach ($enchants as $id_ => $enchantData){
+							$eId = str_replace("id-", "", $id_);
+							if(!isset($enchantData["level"])){
+								$this->getLogger()->error("Failed to load default kit, Error: Missing a required key of enchant for item " . $eId . " (level)");
+								$this->getServer()->getPluginManager()->disablePlugin($this);
+								continue;
+							}
+
+							$eLevel = $enchantData["level"];
+
+							$enchant = new EnchantmentInstance(EnchantmentIdMap::getInstance()->fromId(intval($eId)), $eLevel);
+							$item->addEnchantment($enchant);
+						}
+					}
+
+					if(!$item->isNull()){
+						$items[$slot] = $item;
+					}
+
+					continue;
+				}
+
+				if(in_array($slot_, ["helmet", "chestplate", "leggings", "boots"])){
+					foreach (["id", "enchants"] as $key){
+						if(!isset($slotData[$key])){
+							$this->getLogger()->error("Failed to load default kit, Error: Missing a required key of armor (" . $key . ")");
+							$this->getServer()->getPluginManager()->disablePlugin($this);
+							continue;
+						}
+					}
+
+					$id = $slotData["id"];
+					$enchants = $slotData["enchants"];
+
+					$item = ItemFactory::getInstance()->get($id, 0, 1);
+
+					if(count($enchants) > 0){
+						foreach ($enchants as $id_ => $enchantData){
+							$eId = str_replace("id-", "", $id_);
+							if(!isset($enchantData["level"])){
+								$this->getLogger()->error("Failed to load default kit, Error: Missing a required key of enchant id " . $eId . " (level)");
+								$this->getServer()->getPluginManager()->disablePlugin($this);
+								continue;
+							}
+
+							$eLevel = $enchantData["level"];
+
+							$enchant = new EnchantmentInstance(EnchantmentIdMap::getInstance()->fromId(intval($eId), $eLevel));
+							$item->addEnchantment($enchant);
+						}
+					}
+
+					if(!$item->isNull()){
+						$armors[$slot_] = $item;
+					}
+				}
 			}
+
+			$this->kits[$name]["items"] = $items;
+			$this->kits[$name]["armors"] = $armors;
 		}
 	}
 	
 	public function loadArenas(){
-		$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
-		foreach ($arenas->getAll() as $arena => $data){
-			if(!isset($data["name"]) || !isset($data["world"]) || !isset($data["lobby"]) || !isset($data["respawn"])){
-				if(isset($data["name"]))
-					$this->getLogger()->error("Error in load arena " . $data["name"] . " because corrupt data!");
-				continue;
+		if($this->isDisabled()) return;
+		$this->getProvider()->db()->executeSelect(SQLKeyStorer::GET_ARENAS,
+		[],
+		function(array $rows){
+			if(count($rows) > 0){
+				foreach ($rows as $data){
+					if(!isset($data["name"]) || !isset($data["world"]) || !isset($data["lobby"]) || !isset($data["respawn"])){
+						if(isset($data["name"]))
+							$this->getLogger()->error("Error in load arena " . $data["name"] . " because corrupt data!");
+						continue;
+					}
+
+					$this->getServer()->getWorldManager()->loadWorld($data["world"]);
+					if(($world = $this->getServer()->getWorldManager()->getWorldByName($data["world"])) !== null){
+						$world->setTime(1000);
+						$world->stopTime();
+					}
+
+					$data["lobby"] = json_decode($data["lobby"], true);
+					$data["respawn"] = json_decode($data["respawn"], true);
+
+					$this->arenas[$data["name"]] = new FFAGame($this, $data);
+				}
 			}
-			
-			$this->getServer()->getWorldManager()->loadWorld($data["world"]);
-			if(($level = $this->getServer()->getWorldManager()->getWorldByName($data["world"])) !== null){
-				$level->setTime(1000);
-				$level->stopTime();
-			}
-			$this->arenas[$data["name"]] = new FFAGame($this, $data);
-		}
+		});
 	}
 	
-	public function addArena(array $data): bool{
-		if(!isset($data["name"]) || !isset($data["world"]) || !isset($data["lobby"]) || !isset($data["respawn"]))
-			return false;
+	public function addArena(array $data, callable $callback){
+		if(!isset($data["name"]) || !isset($data["world"]) || !isset($data["lobby"]) || !isset($data["respawn"])){
+			$callback(true);
+			return;
+		}
 		
 		$name = $data["name"];
 		$world = $data["world"];
 		$lobby = $data["lobby"];
 		$respawn = $data["respawn"];
 		
-		$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
-		
-		if($arenas->get($name))
-			return false;
-		
-		$arenas->set($name, $data);
-		$arenas->save();
-		
-		$this->arenas[$name] = new FFAGame($this, $data);
-		return true;
+		$this->getProvider()->db()->executeInsert(SQLKeyStorer::ADD_ARENA,
+		[
+			"name" => $name,
+			"world" => $world,
+			"lobby" => json_encode($lobby),
+			"respawn" => json_encode($respawn)
+		]);
+
+		$callback(true);
+
+		$this->arenas[$data["name"]] = new FFAGame($this, $data);
 	}
 	
-	public function removeArena(string $name): bool{
-		$arenas = new Config($this->getDataFolder() . "arenas.yml", Config::YAML);
-		
-		if(!$arenas->get($name) || !isset($this->arenas[$name]))
-			return false;
-		
-		if(($arena = $this->getArena($name)) !== null){
-			foreach ($arena->getPlayers() as $player){
-				$arena->quitPlayer($player);
+	public function removeArena(string $name, callable $callback){
+		$this->arena_Exist($name, function (bool $exists) use ($name, $callback){
+			if($exists){
+				$this->getProvider()->db()->executeChange(SQLKeyStorer::DELETE_ARENA,
+				[
+					"name" => $name
+				]);
+
+				if(($arena = $this->getArena($name)) !== null){
+					foreach ($arena->getPlayers() as $player){
+						$arena->quitPlayer($player);
+					}
+				}
+
+				if(isset($this->arenas[$name]))
+					unset($this->arenas[$name]);
+
+				$callback(true);
+			} else {
+				$callback(false);
 			}
-		}
-		
-		$arenas->removeNested($name);
-		$arenas->save();
-		
-		unset($this->arenas[$name]);
-		return true;
+		});
+	}
+
+	public function arena_Exist(string $name, callable $callback){
+		$this->getProvider()->db()->executeSelect(SQLKeyStorer::GET_ARENAS,
+		[],
+		function(array $rows) use ($name, $callback) {
+			if(count($rows) > 0){
+				foreach ($rows as $arena){
+					if(strtolower($arena["name"]) == strtolower($name)){
+						$callback(true);
+						return;
+					}
+				}
+			}
+
+			$callback(false);
+		});
+	}
+
+	public function getKits(): array{
+		return $this->kits;
 	}
 	
-	public function getArenas(){
+	public function getArenas(): array{
 		return $this->arenas;
+	}
+
+	public function getProvider(): ?DefaultProvider{
+		return $this->provider;
 	}
 	
 	public function getArena(string $name){
@@ -369,94 +574,91 @@ class Main extends PluginBase implements Listener
 	}
 	
 	public function addKill(Player $player, int $add = 1){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($player->getName())){
-			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		$p = $tops->get($player->getName());
-		$p["kills"] = ($p["kills"] + $add);
-		$tops->set($player->getName(), $p);
-		$tops->save();
+		$this->getProvider()->db()->executeChange(SQLKeyStorer::ADD_KILLS,
+		[
+			"player" => $player->getName(),
+			"kills" => $add
+		]);
 	}
 	
 	public function addKillByName(string $name, int $add = 1){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($name)){
-			$tops->set($name, ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		$p = $tops->get($name);
-		$p["kills"] = ($p["kills"] + $add);
-		$tops->set($name, $p);
-		$tops->save();
+		$this->getProvider()->db()->executeChange(SQLKeyStorer::ADD_KILLS,
+		[
+			"player" => $name,
+			"kills" => $add
+		]);
 	}
 	
 	public function addDeath(Player $player, int $add = 1){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($player->getName())){
-			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		$p = $tops->get($player->getName());
-		$p["deaths"] = ($p["deaths"] + $add);
-		$tops->set($player->getName(), $p);
-		$tops->save();
+		$this->getProvider()->db()->executeChange(SQLKeyStorer::ADD_DEATHS,
+		[
+			"player" => $player->getName(),
+			"deaths" => $add
+		]);
 	}
 	
 	public function addDeathByName(string $name, int $add = 1){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($name)){
-			$tops->set($name, ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		$p = $tops->get($name);
-		$p["deaths"] = ($p["deaths"] + $add);
-		$tops->set($name, $p);
-		$tops->save();
+		$this->getProvider()->db()->executeChange(SQLKeyStorer::ADD_DEATHS,
+		[
+			"player" => $name,
+			"deaths" => $add
+		]);
 	}
 	
-	public function getKills(Player $player){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($player->getName())){
-			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		return $tops->get($player->getName())["kills"];
+	public function getKills(Player $player, callable $callback){
+		$this->getProvider()->db()->executeSelect(SQLKeyStorer::GET_KILLS,
+		[
+			"player" => $player->getName()
+		],
+		function(array $rows) use ($callback) {
+			if(isset($rows[0])){
+				$callback($rows[0]["kills"]);
+			} else {
+				$callback(0);
+			}
+		});
 	}
 	
-	public function getKillsByName(string $name){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($name)){
-			$tops->set($name, ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		return $tops->get($name)["kills"];
+	public function getKillsByName(string $name, callable $callback){
+
+		$this->getProvider()->db()->executeSelect(SQLKeyStorer::GET_KILLS,
+		[
+			"player" => $name
+		],
+		function(array $rows) use ($callback) {
+			if(isset($rows[0])){
+				$callback($rows[0]["kills"]);
+			} else {
+				$callback(0);
+			}
+		});
 	}
 	
-	public function getDeaths(Player $player){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($player->getName())){
-			$tops->set($player->getName(), ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		return $tops->get($player->getName())["deaths"];
+	public function getDeaths(Player $player, callable $callback){
+		$this->getProvider()->db()->executeSelect(SQLKeyStorer::GET_DEATHS,
+		[
+			"player" => $player->getName()
+		],
+		function(array $rows) use ($callback) {
+			if(isset($rows[0])){
+				$callback($rows[0]["deaths"]);
+			} else {
+				$callback(0);
+			}
+		});
 	}
 	
-	public function getDeathsByName(string $name){
-		$tops = new Config($this->getDataFolder() . "tops.yml", Config::YAML);
-		if(!$tops->get($name)){
-			$tops->set($name, ["kills" => 0, "deaths" => 0]);
-			$tops->save();
-		}
-		
-		return $tops->get($name)["deaths"];
+	public function getDeathsByName(string $name, callable $callback){
+		$this->getProvider()->db()->executeSelect(SQLKeyStorer::GET_DEATHS,
+		[
+			"player" => $name
+		],
+		function(array $rows) use ($callback) {
+			if(isset($rows[0])){
+				$callback($rows[0]["deaths"]);
+			} else {
+				$callback(0);
+			}
+		});
 	}
 }
