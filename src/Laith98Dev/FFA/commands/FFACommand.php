@@ -119,7 +119,6 @@ class FFACommand extends Command implements PluginOwned
 					}
 				});
 
-				return true;
 			break;
 			
 			case "remove":
@@ -316,6 +315,7 @@ class FFACommand extends Command implements PluginOwned
 				$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " help");
 			break;
 		}
+		
 		return false;
 	}
 }

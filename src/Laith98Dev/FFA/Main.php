@@ -280,7 +280,7 @@ class Main extends PluginBase implements Listener
 
 							$eLevel = $enchantData["level"];
 
-							$enchant = new EnchantmentInstance(EnchantmentIdMap::getInstance()->fromId(intval($eId), $eLevel));
+							$enchant = new EnchantmentInstance(EnchantmentIdMap::getInstance()->fromId(intval($eId)), $eLevel);
 							$item->addEnchantment($enchant);
 						}
 					}
