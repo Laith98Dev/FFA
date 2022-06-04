@@ -1,6 +1,6 @@
 <?php
 
-namespace Laith98Dev\FFA;
+namespace Laith98Dev\FFA\tasks;
 
 /*  
  *  A plugin for PocketMine-MP.
@@ -12,11 +12,11 @@ namespace Laith98Dev\FFA;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2021 Laith98Dev
+ *	Copyright (C) 2022 Laith98Dev
  *  
  *	Youtube: Laith Youtuber
  *	Discord: Laith98Dev#0695
- *	Gihhub: Laith98Dev
+ *	Github: Laith98Dev
  *	Email: help@laithdev.tk
  *	Donate: https://paypal.me/Laith113
  *
@@ -37,13 +37,14 @@ namespace Laith98Dev\FFA;
 
 use pocketmine\scheduler\Task;
 
+use Laith98Dev\FFA\Main;
+
 class ArenasTask extends Task {
-	
-	/** @var Main */
-	private $plugin;
-	
-	public function __construct(Main $plugin){
-		$this->plugin = $plugin;
+
+	public function __construct(
+		private Main $plugin
+		){
+		// NOOP
 	}
 	
 	public function onRun(): void{

@@ -1,6 +1,6 @@
 <?php
 
-namespace Laith98Dev\FFA;
+namespace Laith98Dev\FFA\game;
 
 /*  
  *  A plugin for PocketMine-MP.
@@ -35,21 +35,15 @@ namespace Laith98Dev\FFA;
  * 	
  */
 
-use pocketmine\entity\Location;
-
-use pocketmine\item\Item;
-use pocketmine\item\ItemFactory;
-use pocketmine\item\ItemIds;
-use pocketmine\item\VanillaItems;
+use Laith98Dev\FFA\Main;
+use Laith98Dev\FFA\utils\Utils;
 
 use pocketmine\player\Player;
 use pocketmine\player\GameMode;
 
-use pocketmine\math\Vector3;
-
 use pocketmine\world\Position;
 
-use pocketmine\utils\{Config, TextFormat as TF};
+use pocketmine\utils\TextFormat as TF;
 
 use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
@@ -61,22 +55,13 @@ use pocketmine\network\mcpe\protocol\types\ScorePacketEntry;
 
 class FFAGame 
 {
-	/** @var Main */
-	private $plugin;
+	private array $players = [];
 	
-	/** @var array */
-	private $data;
+	private array $scoreboards = [];
 	
-	/** @var string[] */
-	private $players = [];
+	private int $scoreboardsLine = 0;
 	
-	/** @var string[] */
-	private $scoreboards = [];
-	
-	/** @var int */
-	private $scoreboardsLine = 0;
-	
-	private $scoreboardsLines = [
+	private array $scoreboardsLines = [
 		0 => TF::BOLD . TF::YELLOW . "FFA",
 		1 => TF::BOLD . TF::WHITE . "F" . TF::YELLOW . "FA",
 		2 => TF::BOLD . TF::YELLOW . "F" . TF::WHITE . "F" . TF::YELLOW . "A",
@@ -84,15 +69,40 @@ class FFAGame
 		4 => TF::BOLD . TF::WHITE . "FFA"
 	];
 	
-	public $protect = [];
+	private array $protect = [];
 	
-	public function __construct(Main $plugin, array $data){
-		$this->plugin = $plugin;
-		$this->UpdateData($data);
+	public function __construct(
+		private Main $plugin,
+		private array $data
+		){
+		$this->setScoreTitle();
 	}
 	
 	public function getPlugin(){
 		return $this->plugin;
+	}
+
+	public function setScoreTitle(){
+		$index = [];
+		$title = $this->plugin->getConfig()->get("scoreboard-title", "FFA");
+
+		$index[] = TF::BOLD . TF::YELLOW . $title;
+		$v = 0;
+		for ($i = 0; $i < strlen($title); $i++){
+			$final = "";
+			for($i_ = 0; $i_ < strlen($title); $i_++){
+				if($i_ == $v){
+					$final .= TF::BOLD . TF::WHITE . $title[$i_];
+				} else {
+					$final .= TF::BOLD . TF::YELLOW . $title[$i_];
+				}
+			}
+			$index[] = $final;
+			$v++;
+		}
+
+		$index[] = TF::BOLD . TF::WHITE . $title;
+		$this->scoreboardsLines = $index;
 	}
 	
 	public function UpdateData(array $data){
@@ -126,6 +136,10 @@ class FFAGame
 	public function isProtected(Player $player){
 		return isset($this->protect[$player->getName()]);
 	}
+
+	public function getProtectTime(Player $player){
+		return $this->protect[$player->getName()] ?? 0;
+	}
 	
 	public function inArena(Player $player){
 		return isset($this->players[$player->getName()]) ? true : false;
@@ -141,7 +155,7 @@ class FFAGame
 		$pk->displayName = $displayName;
 		$pk->criteriaName = "dummy";
 		$pk->sortOrder = 0;
-		$player->getNetworkSession()->sendDataPacket($pk);
+		if($player->isOnline()) $player->getNetworkSession()->sendDataPacket($pk);
 		$this->scoreboards[$player->getName()] = $objectiveName;
 	}
 
@@ -149,7 +163,7 @@ class FFAGame
 		$objectiveName = $this->getObjectiveName($player) ?? "ffa";
 		$pk = new RemoveObjectivePacket();
 		$pk->objectiveName = $objectiveName;
-		$player->getNetworkSession()->sendDataPacket($pk);
+		if($player->isOnline()) $player->getNetworkSession()->sendDataPacket($pk);
 		unset($this->scoreboards[$player->getName()]);
 	}
 
@@ -158,10 +172,12 @@ class FFAGame
 			$this->plugin->getLogger()->error("Cannot set a score to a player with no scoreboard");
 			return;
 		}
+
 		if($score > 15 || $score < 1){
 			$this->plugin->getLogger()->error("Score must be between the value of 1-15. $score out of range");
 			return;
 		}
+
 		$objectiveName = $this->getObjectiveName($player) ?? "ffa";
 		$entry = new ScorePacketEntry();
 		$entry->objectiveName = $objectiveName;
@@ -172,7 +188,7 @@ class FFAGame
 		$pk = new SetScorePacket();
 		$pk->type = $pk::TYPE_CHANGE;
 		$pk->entries[] = $entry;
-		$player->getNetworkSession()->sendDataPacket($pk);
+		if($player->isOnline()) $player->getNetworkSession()->sendDataPacket($pk);
 	}
 
 	public function getObjectiveName(Player $player): ?string{
@@ -221,34 +237,17 @@ class FFAGame
 		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
 		
 		$player->setGamemode(GameMode::ADVENTURE());
-		$player->setHealth(20);
-		$player->getHungerManager()->setFood(20);
-		
-		$player->getInventory()->clearAll();
-		$player->getArmorInventory()->clearAll();
-		$player->getCraftingGrid()->clearAll();
-		$player->getEffects()->clear();
-		//$player->removeAllEffects();
-		
-		$player->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
-		$player->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE, 0, 5));
-		$player->getInventory()->setItem(2, ItemFactory::getInstance()->get(ItemIds::BOW, 0, 1));
-		$player->getInventory()->setItem(3, ItemFactory::getInstance()->get(ItemIds::ARROW, 0, 15));
-		
-		$player->getArmorInventory()->setHelmet(ItemFactory::getInstance()->get(ItemIds::IRON_HELMET));
-		$player->getArmorInventory()->setChestplate(ItemFactory::getInstance()->get(ItemIds::IRON_CHESTPLATE));
-		$player->getArmorInventory()->setLeggings(ItemFactory::getInstance()->get(ItemIds::IRON_LEGGINGS));
-		$player->getArmorInventory()->setBoots(ItemFactory::getInstance()->get(ItemIds::IRON_BOOTS));
+		$this->addItems($player);
 		
 		$this->players[$player->getName()] = $player;
 		
-		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-		if($cfg->get("join-and-respawn-protected") === true){
-			$this->protect[$player->getName()] = 3;
-			$player->sendMessage("You're now protected 3 seconds");
-		}
+		$this->broadcast(Utils::messageFormat($this->getPlugin()->getConfig()->get("join-message"), $player, $this));
 		
-		$this->broadcast($player->getName() . " joined to FFA!");
+		if($this->plugin->getConfig()->get("join-and-respawn-protected") === true){
+			$this->protect[$player->getName()] = $this->plugin->getConfig()->get("protected-time", 3);
+			$player->sendMessage(Utils::messageFormat($this->getPlugin()->getConfig()->get("protected-message"), $player, $this));
+		}
+	
 		return true;
 	}
 	
@@ -267,11 +266,10 @@ class FFAGame
 		$player->getCraftingGrid()->clearAll();
 		$player->getEffects()->clear();
 		$player->setGamemode($this->plugin->getServer()->getGamemode());
-		//$player->setGamemode(GameMode::SURVIVAL());
 		$player->setHealth(20);
 		$player->getHungerManager()->setFood(20);
 		
-		$this->broadcast($player->getName() . " quit FFA!");
+		$this->broadcast(Utils::messageFormat($this->getPlugin()->getConfig()->get("leave-message"), $player, $this));
 		return true;
 	}
 	
@@ -294,44 +292,39 @@ class FFAGame
 		$player->setHealth(20);
 		$player->getHungerManager()->setFood(20);
 		$this->plugin->addDeath($player);
-		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
 		switch ($event->getCause()){
 			case EntityDamageEvent::CAUSE_ENTITY_ATTACK:
 				$damager = $event instanceof EntityDamageByEntityEvent ? $event->getDamager() : null;
 				if($damager !== null && $damager instanceof Player){
-					$message = str_replace(["{PLAYER}", "{KILLER}", "&"], [$player->getName(), $damager->getName(), TF::ESCAPE], $cfg->get("death-attack-message"));
+					$message = str_replace(["{PLAYER}", "{KILLER}", "&"], [$player->getName(), $damager->getName(), TF::ESCAPE], $this->plugin->getConfig()->get("death-attack-message"));
 					$this->plugin->addKill($damager);
+
+					$this->plugin->getKills($damager, function ($kills) use ($damager){
+						if($kills % 5 === 0){
+							$messages = $this->plugin->getConfig()->get("kills-messages", []);
+							if(count($messages) > 0){
+								$killMsg = $messages[array_rand($messages)];
+								$killMsg = Utils::messageFormat($killMsg, $damager, $this);
+								$killMsg = str_replace("{KILLS}", $kills, $killMsg);
+								$damager->sendMessage($killMsg);
+							}
+						}
+					});
 					
 					$damager->sendPopup(TF::YELLOW . "+1 Kill");
-					$damager->setHealth(20);
-					$damager->getHungerManager()->setFood(20);
-					
-					$damager->getInventory()->clearAll();
-					$damager->getArmorInventory()->clearAll();
-					$damager->getCraftingGrid()->clearAll();
-					$damager->getEffects()->clear();
-					
-					$damager->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
-					$damager->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE, 0, 5));
-					$damager->getInventory()->setItem(2, ItemFactory::getInstance()->get(ItemIds::BOW, 0, 1));
-					$damager->getInventory()->setItem(3, ItemFactory::getInstance()->get(ItemIds::ARROW, 0, 15));
-					
-					$damager->getArmorInventory()->setHelmet(ItemFactory::getInstance()->get(ItemIds::IRON_HELMET));
-					$damager->getArmorInventory()->setChestplate(ItemFactory::getInstance()->get(ItemIds::IRON_CHESTPLATE));
-					$damager->getArmorInventory()->setLeggings(ItemFactory::getInstance()->get(ItemIds::IRON_LEGGINGS));
-					$damager->getArmorInventory()->setBoots(ItemFactory::getInstance()->get(ItemIds::IRON_BOOTS));
+					$this->addItems($damager);
 				}
 			break;
 			
 			case EntityDamageEvent::CAUSE_VOID:
-				$message = str_replace(["{PLAYER}", "&"], [$player->getName(), TF::ESCAPE], $cfg->get("death-void-message"));
+				$message = str_replace(["{PLAYER}", "&"], [$player->getName(), TF::ESCAPE], $this->plugin->getConfig()->get("death-void-message"));
 			break;
 		}
 		
 		if($message !== null)
 			$this->broadcast($message);
 		
-		if($cfg->get("death-respawn-inMap") === true){
+		if($this->plugin->getConfig()->get("death-respawn-inMap") === true){
 			$this->respawn($player);
 		} else {
 			$this->quitPlayer($player);
@@ -340,23 +333,8 @@ class FFAGame
 	
 	public function respawn(Player $player){
 		$player->setGamemode(GameMode::ADVENTURE());
-		$player->setHealth(20);
-		$player->getHungerManager()->setFood(20);
 		
-		$player->getInventory()->clearAll();
-		$player->getArmorInventory()->clearAll();
-		$player->getCraftingGrid()->clearAll();
-		$player->getEffects()->clear();
-		
-		$player->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
-		$player->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE, 0, 5));
-		$player->getInventory()->setItem(2, ItemFactory::getInstance()->get(ItemIds::BOW, 0, 1));
-		$player->getInventory()->setItem(3, ItemFactory::getInstance()->get(ItemIds::ARROW, 0, 15));
-		
-		$player->getArmorInventory()->setHelmet(ItemFactory::getInstance()->get(ItemIds::IRON_HELMET));
-		$player->getArmorInventory()->setChestplate(ItemFactory::getInstance()->get(ItemIds::IRON_CHESTPLATE));
-		$player->getArmorInventory()->setLeggings(ItemFactory::getInstance()->get(ItemIds::IRON_LEGGINGS));
-		$player->getArmorInventory()->setBoots(ItemFactory::getInstance()->get(ItemIds::IRON_BOOTS));
+		$this->addItems($player);
 		
 		$respawn = $this->getRespawn();
 		$x = floatval($respawn["PX"]);
@@ -367,28 +345,74 @@ class FFAGame
 		
 		$player->teleport(new Position($x, $y, $z, $this->getLevel()), $yaw, $pitch);
 		
-		$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-		if($cfg->get("join-and-respawn-protected") === true){
-			$this->protect[$player->getName()] = 3;
-			$player->sendMessage("You're now protected 3 seconds");
+		if($this->plugin->getConfig()->get("join-and-respawn-protected") === true){
+			$this->protect[$player->getName()] = $this->plugin->getConfig()->get("protected-time", 3);
+			$player->sendMessage(str_replace(["{PLAYER}", "{TIME}", "&"], [$player->getName(), $this->protect[$player->getName()], TF::ESCAPE], $this->plugin->getConfig()->get("protected-message")));
 		}
 		
-		$player->sendTitle(TF::YELLOW . TF::BOLD . "Respawned");
+		$player->sendTitle(Utils::messageFormat($this->getPlugin()->getConfig()->get("respawn-message"), $player, $this));
+	}
+
+	private function addItems(Player $player){
+		$player->getInventory()->clearAll();
+		$player->getArmorInventory()->clearAll();
+		$player->getCraftingGrid()->clearAll();
+		$player->getEffects()->clear();
+		
+		// $player->getInventory()->setItem(0, ItemFactory::getInstance()->get(ItemIds::IRON_SWORD, 0, 1));
+		// $player->getInventory()->setItem(1, ItemFactory::getInstance()->get(ItemIds::GOLDEN_APPLE, 0, 5));
+		// $player->getInventory()->setItem(2, ItemFactory::getInstance()->get(ItemIds::BOW, 0, 1));
+		// $player->getInventory()->setItem(3, ItemFactory::getInstance()->get(ItemIds::ARROW, 0, 15));
+		
+		// $player->getArmorInventory()->setHelmet(ItemFactory::getInstance()->get(ItemIds::IRON_HELMET));
+		// $player->getArmorInventory()->setChestplate(ItemFactory::getInstance()->get(ItemIds::IRON_CHESTPLATE));
+		// $player->getArmorInventory()->setLeggings(ItemFactory::getInstance()->get(ItemIds::IRON_LEGGINGS));
+		// $player->getArmorInventory()->setBoots(ItemFactory::getInstance()->get(ItemIds::IRON_BOOTS));
+
+		$defaultKit = $this->plugin->getKits()["default"];
+		$items = $defaultKit["items"];
+		$armors = $defaultKit["armors"];
+
+		foreach ($items as $slot => $item){
+			$player->getInventory()->setItem(intval($slot), $item);
+		}
+		
+		foreach ($armors as $type => $item){
+			switch ($type){
+				case "helmet":
+					$player->getArmorInventory()->setHelmet($item);
+					break;
+				case "chestplate":
+					$player->getArmorInventory()->setChestplate($item);
+					break;
+				case "leggings":
+					$player->getArmorInventory()->setLeggings($item);
+					break;
+				case "boots":
+					$player->getArmorInventory()->setBoots($item);
+					break;
+				
+			}
+		}
 	}
 	
 	public function tick(){
 		foreach ($this->getPlayers() as $player){
-			$cfg = new Config($this->plugin->getDataFolder() . "config.yml", Config::YAML);
-			$this->new($player, "ffa", $this->scoreboardsLines[$this->scoreboardsLine]);
-			$this->setLine($player, 1, " ");
-			$this->setLine($player, 2, " Players: " . TF::YELLOW . count($this->getPlayers()) . "  ");
-			$this->setLine($player, 3, "  ");
-			$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getName() . "  ");
-			$this->setLine($player, 5, "   ");
-			$this->setLine($player, 6, " Kills: " . TF::YELLOW . $this->plugin->getKills($player) . " ");
-			$this->setLine($player, 7, " Deaths: " . TF::YELLOW . $this->plugin->getDeaths($player) . " ");
-			$this->setLine($player, 8, "    ");
-			$this->setLine($player, 9, " " . $cfg->get("scoreboardIp", "play.example.net") . " ");
+			if(!$player->isOnline()) continue;
+			$this->getPlugin()->getKills($player, function($kills) use ($player): void{
+				$this->getPlugin()->getDeaths($player, function($deaths) use ($player, $kills): void{
+					$this->new($player, "ffa", $this->scoreboardsLines[$this->scoreboardsLine]);
+					$this->setLine($player, 1, " ");
+					$this->setLine($player, 2, " Players: " . TF::YELLOW . count($this->getPlayers()) . "  ");
+					$this->setLine($player, 3, "  ");
+					$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getName() . "  ");
+					$this->setLine($player, 5, "   ");
+					$this->setLine($player, 6, " Kills: " . TF::YELLOW . $kills . " ");
+					$this->setLine($player, 7, " Deaths: " . TF::YELLOW . $deaths . " ");
+					$this->setLine($player, 8, "    ");
+					$this->setLine($player, 9, " " . str_replace("&", TF::ESCAPE, $this->plugin->getConfig()->get("scoreboardIp", "play.example.net") . " "));
+				});
+			});
 		}
 		
 		if($this->scoreboardsLine == (count($this->scoreboardsLines) - 1)){
@@ -398,7 +422,6 @@ class FFAGame
 		}
 		
 		foreach ($this->protect as $name => $time){
-			//var_dump("Player: " . $name . " Time: " . $time . "\n");
 			if($time == 0){
 				unset($this->protect[$name]);
 			} else {
