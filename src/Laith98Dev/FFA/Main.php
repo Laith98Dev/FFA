@@ -71,6 +71,8 @@ class Main extends PluginBase implements Listener
 	/** @var FFAGame[] */
 	private array $arenas = [];
 
+	private static $instance;
+
 	private DefaultProvider $provider;
 
 	private array $defaultData = [
@@ -156,6 +158,14 @@ class Main extends PluginBase implements Listener
 	];
 
 	private array $kits = [];
+
+	public function onLoad(): void{
+		self::$instance = $this;
+	}
+
+	public static function getInstaance(): Main{
+		return self::$instance;
+	}
 	
 	public function onEnable(): void{
 		@mkdir($this->getDataFolder());
