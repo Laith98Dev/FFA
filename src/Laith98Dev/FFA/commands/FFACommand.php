@@ -74,13 +74,13 @@ class FFACommand extends Command implements PluginOwned
 		switch ($args[0]){
 			case "help":
 				$sender->sendMessage(TF::YELLOW . "========================");
-				//if($this->testPermission($sender)){
 				if($sender->hasPermission("ffa.command.admin")){
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " help");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " create");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " remove");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " setlobby");
 					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " setrespawn");
+					$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " reload");
 					$sender->sendMessage (TF::GREEN  . "- /" . $cmdLabel . " list");
 				}
 				$sender->sendMessage(TF::GREEN  . "- /" . $cmdLabel . " join");
