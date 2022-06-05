@@ -12,11 +12,11 @@ namespace Laith98Dev\FFA\game;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2021 Laith98Dev
+ *	Copyright (C) 2022 Laith98Dev
  *  
  *	Youtube: Laith Youtuber
  *	Discord: Laith98Dev#0695
- *	Gihhub: Laith98Dev
+ *	Github: Laith98Dev
  *	Email: help@laithdev.tk
  *	Donate: https://paypal.me/Laith113
  *
