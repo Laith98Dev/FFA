@@ -350,7 +350,7 @@ class FFACommand extends Command implements PluginOwned
 				if(isset($args[1])){
 					$player = $sender;
 					
-					if(isset($args[2])){
+					if(isset($args[2]) && $sender->hasPermission("ffa.command.admin")){
 						if(($pp = $this->getOwningPlugin()->getServer()->getPlayerByPrefix($args[2])) !== null){
 							$player = $pp;
 						}
