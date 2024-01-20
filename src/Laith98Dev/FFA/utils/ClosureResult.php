@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Laith98Dev\FFA\tasks;
+namespace Laith98Dev\FFA\utils;
 
 /*  
  *  A plugin for PocketMine-MP.
@@ -37,21 +37,30 @@ namespace Laith98Dev\FFA\tasks;
  * 	
  */
 
-use pocketmine\scheduler\Task;
+class ClosureResult
+{
+    public const STATE_FAILURE = 0;
+    public const STATE_SUCCESS = 1;
 
-use Laith98Dev\FFA\Main;
+    public function __construct(
+        private int $status,
+        private mixed $value = null
+    ){
+        // NOOP
+    }
 
-class ArenasTask extends Task {
+    public function getStatus(): int
+    {
+        return $this->status;
+    }
 
-	public function __construct(
-		private Main $plugin
-	){
-		// NOOP
-	}
-	
-	public function onRun(): void{
-		foreach ($this->plugin->getArenas() as $arena){
-			$arena->tick();
-		}
-	}
+    public function getValue(): mixed
+    {
+        return $this->value;
+    }
+
+    public static function create(int $status, mixed $value = null): self
+    {
+        return new self($status, $value);
+    }
 }

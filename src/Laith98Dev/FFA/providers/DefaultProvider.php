@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Laith98Dev\FFA\providers;
 
 /*  
@@ -12,13 +14,13 @@ namespace Laith98Dev\FFA\providers;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2022 Laith98Dev
+ *	Copyright (C) 2024 Laith98Dev
  *  
- *	Youtube: Laith Youtuber
- *	Discord: Laith98Dev#0695
- *	Github: Laith98Dev
- *	Email: help@laithdev.tk
- *	Donate: https://paypal.me/Laith113
+ *  Youtube: Laith Youtuber
+ *  Discord: Laith98Dev#0695 or @u.oo
+ *  Github: Laith98Dev
+ *  Email: spt.laithdev@gamil.com
+ *  Donate: https://paypal.me/Laith113
  *
  *	This program is free software: you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -48,7 +50,7 @@ class DefaultProvider {
 
     public function __construct(
         private Main $plugin
-        ){
+    ){
         $this->init();
     }
 

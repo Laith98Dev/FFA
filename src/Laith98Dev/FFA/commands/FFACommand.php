@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Laith98Dev\FFA\commands;
 
 /*  
@@ -12,13 +14,13 @@ namespace Laith98Dev\FFA\commands;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2022 Laith98Dev
+ *	Copyright (C) 2024 Laith98Dev
  *  
- *	Youtube: Laith Youtuber
- *	Discord: Laith98Dev#0695
- *	Github: Laith98Dev
- *	Email: help@laithdev.tk
- *	Donate: https://paypal.me/Laith113
+ *  Youtube: Laith Youtuber
+ *  Discord: Laith98Dev#0695 or @u.oo
+ *  Github: Laith98Dev
+ *  Email: spt.laithdev@gamil.com
+ *  Donate: https://paypal.me/Laith113
  *
  *	This program is free software: you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -35,7 +37,11 @@ namespace Laith98Dev\FFA\commands;
  * 	
  */
 
+use Closure;
+use Generator;
+use Laith98Dev\FFA\API;
 use Laith98Dev\FFA\Main;
+use Laith98Dev\FFA\utils\ClosureResult;
 use Laith98Dev\FFA\utils\SQLKeyStorer;
 
 use pocketmine\command\CommandSender;
@@ -45,15 +51,15 @@ use pocketmine\plugin\PluginOwned;
 use pocketmine\utils\TextFormat as TF;
 
 use pocketmine\player\Player;
+use SOFe\AwaitGenerator\Await;
 
 class FFACommand extends Command implements PluginOwned
 {
-
 	public function __construct(
 		private Main $plugin
-		){
-		parent::__construct("ffa", "FFA Commands", null, ["ffa"]);
-		$this->setPermission("ffa.command.admin");
+	){
+		parent::__construct("ffa", "FFA Commands", null, ["freeforall"]);
+		$this->setPermission("ffa.command");
 	}
 	
 	public function getOwningPlugin() : Main{
@@ -89,41 +95,64 @@ class FFACommand extends Command implements PluginOwned
 			break;
 			
 			case "create":
-				if(!$sender->hasPermission("ffa.command.admin"))
+				if(!$sender->hasPermission("ffa.command.admin")){
 					return false;
+				}
 				if(!isset($args[1])){
 					$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " create <arenaName>");
 					return false;
 				}
 				
 				$arenaName = $args[1];
-				$level = $sender->getWorld();
+				$world = $sender->getWorld();
 				
-				if($level->getFolderName() == $this->plugin->getServer()->getWorldManager()->getDefaultWorld()->getFolderName()){
-					$sender->sendMessage(TF::RED . "You cannot create game in default world!");
+				if($world->getFolderName() == $this->plugin->getServer()->getWorldManager()->getDefaultWorld()->getFolderName()){
+					$sender->sendMessage(TF::RED . "You cannot create a game in the default world!");
 					return false;
 				}
 
-				$this->plugin->arena_Exist($arenaName, function (bool $exists) use ($sender, $arenaName, $level){
-					if($exists){
-						$sender->sendMessage(TF::RED . "Arena already exist!");
+				Await::f2c(function () use($sender, $arenaName, $world): Generator{
+
+					/**
+					 * @var ClosureResult $isValid
+					 */
+					$isValid = yield from Await::promise(
+						fn(Closure $resolve) => API::isValidArena($arenaName, $resolve)
+					);
+
+					if($isValid->getValue()){
+						$sender->sendMessage(TF::RED . "There is an arena with this name.");
 					} else {
-						$data = ["name" => $arenaName, "world" => $level->getFolderName(), "lobby" => [], "respawn" => []];
-						$this->plugin->addArena($data, function (bool $addRusult) use ($sender){
-							if($addRusult){
-								$sender->sendMessage(TF::YELLOW . "Arena created!");
-							} else {
-								$sender->sendMessage(TF::RED . "An error while trying to add this arena please contact with developer!");
-							}
-						});
+						$data = [
+							"name" => $arenaName,
+							"world" => $world->getFolderName(),
+							"lobby" => [],
+							"respawn" => []
+						];
+
+						/**
+						 * @var ClosureResult $response
+						 */
+						$response = yield from Await::promise(
+							fn(Closure $resolve) => $this->getOwningPlugin()->addArena(
+								$data,
+								$resolve
+							)
+						);
+
+						if($response->getValue()){
+							$sender->sendMessage(TF::YELLOW . "Arena was created successfully.");
+						} else {
+							$sender->sendMessage(TF::RED . "There was an error while trying to add this arena; please check your console to see the error and contact the developer!");
+						}
 					}
 				});
-
 			break;
 			
 			case "remove":
-				if(!$sender->hasPermission("ffa.command.admin"))
+				if(!$sender->hasPermission("ffa.command.admin")){
 					return false;
+				}
 				
 				if(!isset($args[1])){
 					$sender->sendMessage(TF::RED . "Usage: /" . $cmdLabel . " remove <arenaName>");
@@ -132,127 +161,184 @@ class FFACommand extends Command implements PluginOwned
 				
 				$arenaName = $args[1];
 
-				$this->plugin->removeArena($arenaName, function (bool $deleted) use ($sender){
-					if($deleted){
-						$sender->sendMessage(TF::GREEN . "Arena deleted!");
+				Await::f2c(function () use($sender, $arenaName): Generator{
+					/**
+					 * @var ClosureResult $response
+					 */
+					$response = yield from Await::promise(
+						fn(Closure $resolve) => $this->getOwningPlugin()->removeArena(
+							$arenaName,
+							$resolve
+						)
+					);
+
+					if($response->getValue()){
+						$sender->sendMessage(TF::GREEN . "Arena was deleted successfully!");
 					} else {
-						$sender->sendMessage(TF::RED . "Arena not exist");
+						$sender->sendMessage(TF::RED . "Arena does not exist");
 					}
 				});
 
 			break;
 			
 			case "setlobby":
-				if(!$sender->hasPermission("ffa.command.admin"))
+				if(!$sender->hasPermission("ffa.command.admin")){
 					return false;
-				
-				$level = $sender->getWorld();
-				$arena = null;
-				$arenaName = null;
+				}
 
-				$this->plugin->getProvider()->db()->executeSelect(SQLKeyStorer::GET_ARENAS,
-				[],
-				function(array $rows) use ($level, $sender, $cmdLabel) {
-					if(count($rows) > 0){
-						$arenaName = null;
+				Await::f2c(function () use ($sender, $cmdLabel): Generator{
+					$world = $sender->getWorld();
+					$arena = null;
+					$arenaName = null;
+
+					$rows = yield from Await::promise(
+						fn(Closure $resolve) => $this->getOwningPlugin()->getProvider()->db()->executeSelect(
+							SQLKeyStorer::GET_ARENAS,
+							[],
+							$resolve,
+						)
+					);
+
+					if(!empty($rows)){
 						foreach ($rows as $arena){
-							if(strtolower($arena["world"]) == strtolower($level->getFolderName())){
+							if(strtolower($arena["world"]) == strtolower($world->getFolderName())){
 								$arenaName = $arena["name"];
 							}
 						}
 
-						if($arenaName == null){
-							$sender->sendMessage(TF::RED . "Arena not exist, try create Usage: /" . $cmdLabel . " create" . "!");
+						if($arenaName === null){
+							$sender->sendMessage(TF::RED . "Arena does not exist; try creating it using the command /" . $cmdLabel . " create!");
 							return false;
 						}
-						
-						$data = ["PX" => $sender->getLocation()->x, "PY" => $sender->getLocation()->y, "PZ" => $sender->getLocation()->z, "YAW" => $sender->getLocation()->yaw, "PITCH" => $sender->getLocation()->pitch];
-					
-						$this->plugin->getProvider()->db()->executeChange(SQLKeyStorer::UPDATE_LOBBY,
-						[
-							"name" => $arenaName,
-							"lobby" => json_encode($data)
-						]);
-		
-						$this->plugin->getProvider()->db()->executeSelect(SQLKeyStorer::GET_ARENAS,
-						[],
-						function(array $rows) use ($sender, $arenaName) {
-							if(count($rows) > 0){
-								foreach ($rows as $data){
-									if(strtolower($data["name"]) == strtolower($arenaName)){
-										$data["lobby"] = json_decode($data["lobby"], true);
-										$data["respawn"] = json_decode($data["respawn"], true);
 
-										if(($arena = $this->plugin->getArena($arenaName)) !== null){
-											$arena->UpdateData($data);
-										}
-										
-										$sender->sendMessage(TF::YELLOW . "successfully updated lobby position for '" . $arenaName . "'!");
-										break;
+						$data = [
+							"PX" => $sender->getLocation()->x,
+							"PY" => $sender->getLocation()->y,
+							"PZ" => $sender->getLocation()->z,
+							"YAW" => $sender->getLocation()->yaw,
+							"PITCH" => $sender->getLocation()->pitch
+						];
+
+						yield from Await::promise(
+							fn(Closure $resolve) => $this->getOwningPlugin()->getProvider()->db()->executeChange(
+								SQLKeyStorer::UPDATE_LOBBY,
+								[
+									"name" => $arenaName,
+									"lobby" => json_encode($data)
+								],
+								$resolve
+							)
+						);
+
+						$arenas_rows = yield from Await::promise(
+							fn(Closure $resolve) => $this->getOwningPlugin()->getProvider()->db()->executeSelect(
+								SQLKeyStorer::GET_ARENAS,
+								[],
+								$resolve
+							)
+						);
+
+						if(!empty($arenas_rows)){
+							foreach ($arenas_rows as $data){
+								if(strtolower($data["name"]) == strtolower($arenaName)){
+									$data["lobby"] = json_decode($data["lobby"], true);
+									$data["respawn"] = json_decode($data["respawn"], true);
+
+									if(($arena = $this->getOwningPlugin()->getArena($arenaName)) !== null){
+										$arena->updateData($data);
 									}
+									
+									$sender->sendMessage(TF::YELLOW . "successfully updated lobby position for '" . $arenaName . "'!");
+									break;
 								}
 							}
-						});
+						}
 					}
 				});
+				
 			break;
 			
 			case "setrespawn":
-				if(!$sender->hasPermission("ffa.command.admin"))
+				if(!$sender->hasPermission("ffa.command.admin")){
 					return false;
-				
-				$level = $sender->getWorld();
-				$this->plugin->getProvider()->db()->executeSelect(SQLKeyStorer::GET_ARENAS,
-				[],
-				function(array $rows) use ($level, $sender, $cmdLabel) {
-					if(count($rows) > 0){
-						$arenaName = null;
+				}
+
+				Await::f2c(function () use ($sender, $cmdLabel): Generator{
+					$world = $sender->getWorld();
+					$arena = null;
+					$arenaName = null;
+
+					$rows = yield from Await::promise(
+						fn(Closure $resolve) => $this->getOwningPlugin()->getProvider()->db()->executeSelect(
+							SQLKeyStorer::GET_ARENAS,
+							[],
+							$resolve,
+						)
+					);
+
+					if(!empty($rows)){
 						foreach ($rows as $arena){
-							if(strtolower($arena["world"]) == strtolower($level->getFolderName())){
+							if(strtolower($arena["world"]) == strtolower($world->getFolderName())){
 								$arenaName = $arena["name"];
 							}
 						}
 
-						if($arenaName == null){
-							$sender->sendMessage(TF::RED . "Arena not exist, try create Usage: /" . $cmdLabel . " create" . "!");
+						if($arenaName === null){
+							$sender->sendMessage(TF::RED . "Arena does not exist; try creating it using the command /" . $cmdLabel . " create!");
 							return false;
 						}
 
-						$data = ["PX" => $sender->getLocation()->x, "PY" => $sender->getLocation()->y, "PZ" => $sender->getLocation()->z, "YAW" => $sender->getLocation()->yaw, "PITCH" => $sender->getLocation()->pitch];
+						$data = [
+							"PX" => $sender->getLocation()->x,
+							"PY" => $sender->getLocation()->y,
+							"PZ" => $sender->getLocation()->z,
+							"YAW" => $sender->getLocation()->yaw,
+							"PITCH" => $sender->getLocation()->pitch
+						];
 
-						$this->plugin->getProvider()->db()->executeChange(SQLKeyStorer::UPDATE_RESPAWN,
-						[
-							"name" => $arenaName,
-							"respawn" => json_encode($data)
-						]);
+						yield from Await::promise(
+							fn(Closure $resolve) => $this->getOwningPlugin()->getProvider()->db()->executeChange(
+								SQLKeyStorer::UPDATE_RESPAWN,
+								[
+									"name" => $arenaName,
+									"respawn" => json_encode($data)
+								],
+								$resolve
+							)
+						);
 
-						$this->plugin->getProvider()->db()->executeSelect(SQLKeyStorer::GET_ARENAS,
-						[],
-						function(array $rows) use ($sender, $arenaName) {
-							if(count($rows) > 0){
-								foreach ($rows as $data){
-									if(strtolower($data["name"]) == strtolower($arenaName)){
-										$data["lobby"] = json_decode($data["lobby"], true);
-										$data["respawn"] = json_decode($data["respawn"], true);
-										
-										if(($arena = $this->plugin->getArena($arenaName)) !== null){
-											$arena->UpdateData($data);
-										}
+						$arenas_rows = yield from Await::promise(
+							fn(Closure $resolve) => $this->getOwningPlugin()->getProvider()->db()->executeSelect(
+								SQLKeyStorer::GET_ARENAS,
+								[],
+								$resolve
+							)
+						);
 
-										$sender->sendMessage(TF::YELLOW . "successfully updated respawn position for '" . $arenaName . "'!");
-										break;
+						if(!empty($arenas_rows)){
+							foreach ($arenas_rows as $data){
+								if(strtolower($data["name"]) == strtolower($arenaName)){
+									$data["lobby"] = json_decode($data["lobby"], true);
+									$data["respawn"] = json_decode($data["respawn"], true);
+
+									if(($arena = $this->getOwningPlugin()->getArena($arenaName)) !== null){
+										$arena->updateData($data);
 									}
+									
+									$sender->sendMessage(TF::YELLOW . "successfully updated respawn position for '" . $arenaName . "'!");
+									break;
 								}
 							}
-						});
+						}
 					}
 				});
 
 			break;
 			
 			case "list":
-				if(!$sender->hasPermission("ffa.command.admin"))
+				if(!$sender->hasPermission("ffa.command.admin")){
 					return false;
+				}
 				
 				$sender->sendMessage(TF::GREEN . "Arenas:");
 				foreach ($this->plugin->getArenas() as $arena){
@@ -261,43 +347,40 @@ class FFACommand extends Command implements PluginOwned
 			break;
 			
 			case "join":
-				if(!$sender->hasPermission("ffa.command.join"))
-					return false;
 				if(isset($args[1])){
 					$player = $sender;
 					
 					if(isset($args[2])){
-						if(($pp = $this->plugin->getServer()->getPlayerByPrefix($args[2])) !== null){
+						if(($pp = $this->getOwningPlugin()->getServer()->getPlayerByPrefix($args[2])) !== null){
 							$player = $pp;
 						}
 					}
 					
-					if($this->plugin->joinArena($player, $args[1])){
+					if($this->getOwningPlugin()->joinArena($player, $args[1])){
 						return true;
 					}
 				} else {
-					if($this->plugin->joinRandomArena($sender)){
+					if($this->getOwningPlugin()->joinRandomArena($sender)){
 						return true;
 					}
 				}
 			break;
 			
 			case "quit":
-				if(!$sender->hasPermission("ffa.command.quit"))
-					return false;
-				if(($arena = $this->plugin->getPlayerArena($sender)) !== null){
+				if(($arena = $this->getOwningPlugin()->getPlayerArena($sender)) !== null){
 					if($arena->quitPlayer($sender)){
 						return true;
 					}
 				} else {
-					$sender->sendMessage("You're not in a arena!");
+					$sender->sendMessage("You're not in an arena!");
 					return false;
 				}
 			break;
 
 			case "reload":
-				if(!$sender->hasPermission("ffa.command.admin"))
+				if(!$sender->hasPermission("ffa.command.admin")){
 					return false;
+				}
 				
 				foreach ($this->getOwningPlugin()->getArenas() as $arena){
 					foreach ($arena->getPlayers() as $player){
@@ -308,7 +391,7 @@ class FFACommand extends Command implements PluginOwned
 				$this->getOwningPlugin()->loadKits();
 				$this->getOwningPlugin()->loadArenas();
 
-				$sender->sendMessage(TF::GREEN . "You've been reloaded the plugin successfully!");
+				$sender->sendMessage(TF::GREEN . "You've reloaded the plugin successfully!");
 			break;
 
 			default:

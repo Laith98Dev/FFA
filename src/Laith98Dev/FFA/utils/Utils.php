@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Laith98Dev\FFA\utils;
 
 /*  
@@ -12,13 +14,13 @@ namespace Laith98Dev\FFA\utils;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2022 Laith98Dev
+ *	Copyright (C) 2024 Laith98Dev
  *  
- *	Youtube: Laith Youtuber
- *	Discord: Laith98Dev#0695
- *	Github: Laith98Dev
- *	Email: help@laithdev.tk
- *	Donate: https://paypal.me/Laith113
+ *  Youtube: Laith Youtuber
+ *  Discord: Laith98Dev#0695 or @u.oo
+ *  Github: Laith98Dev
+ *  Email: spt.laithdev@gamil.com
+ *  Donate: https://paypal.me/Laith113
  *
  *	This program is free software: you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -35,21 +37,21 @@ namespace Laith98Dev\FFA\utils;
  * 	
  */
 
-use Laith98Dev\FFA\game\FFAGame;
+use Laith98Dev\FFA\game\Arena;
 use pocketmine\player\Player;
 use pocketmine\utils\TextFormat;
 
 class Utils {
 
-    public static function messageFormat(string $msg, Player $player, FFAGame $game){
+    public static function messageFormat(string $msg, Player $player, Arena $game){
         $index = [
             "{PLAYER}" => $player->getName(),
             "{ARENA}" => $game->getName(),
             "{GAME}" => $game->getName(),
             "&" => TextFormat::ESCAPE,
-            "{WORLD}" => $game->getWorld(),
-            "{PLAYERS}" => count($game->getPlayers()),
-            "{TIME}" => $game->getProtectTime($player)
+            "{WORLD}" => $game->getWorldName(),
+            "{PLAYERS}" => strval(count($game->getPlayers())),
+            "{TIME}" => strval($game->getProtectTime($player))
         ];
 
         return str_replace(array_keys($index), array_values($index), $msg);

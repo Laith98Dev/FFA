@@ -1,14 +1,13 @@
 name: FFA
-api: [4.0.0]
-version: 1.0.3
+api: 5.0.0
+version: 2.0.0
 main: Laith98Dev\FFA\Main
 author: Laith98Dev
 website: https://github.com/Laith98Dev
+depend: BanCommands
 
 permissions:
+  ffa.command:
+    default: true
   ffa.command.admin:
-    default: op 
-  ffa.command.join:
-    default: true
-  ffa.command.quit:
-    default: true
+    default: op
