@@ -4,6 +4,9 @@
   <h3>(FFA, or Free for All) is a survival and fighting game where the game begins and you have to fight to survive.</h3>
 </div>
 
+# Dependencies
+- [BanCommands](https://poggit.pmmp.io/p/BanCommands)
+
 # How to create an arena
 - Teleport to the world who need to make an arena in it.
 - First, type `/ffa create "your arena name"` to create the arena.
