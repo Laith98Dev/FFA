@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA\game;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -61,79 +61,96 @@ use pocketmine\network\mcpe\protocol\types\ScorePacketEntry;
 use pocketmine\world\World;
 use SOFe\AwaitGenerator\Await;
 
-class Arena 
+class Arena
 {
 	private array $players = [];
-	
+
 	private array $scoreboards = [];
-	
+
 	private int $scoreboardsLine = 0;
 
-	private array $protect = [];
-	
+	private array $respawnProtection = [];
+
 	public function __construct(
 		private array $data
-	){
+	) {
 		// NOOP
 	}
-	
-	public function getPlugin(): Main{
-		return Main::getInstaance();
+
+	public function getPlugin(): Main
+	{
+		return Main::getInstance();
 	}
-	
-	public function updateData(array $data): void{
+
+	public function updateData(array $data): void
+	{
 		$this->data = $data;
 	}
-	
-	public function getData(): array{
+
+	public function getData(): array
+	{
 		return $this->data;
 	}
-	
-	public function getName(): string{
+
+	public function getName(): string
+	{
 		return $this->getData()["name"];
 	}
-	
-	public function getWorldName(): string{
+
+	public function getWorldName(): string
+	{
 		return $this->getData()["world"];
 	}
-	
-	public function getLobby(): array{
+
+	public function getLobby(): array
+	{
 		return $this->getData()["lobby"];
 	}
-	
-	public function getRespawn(): array{
+
+	public function getRespawn(): array
+	{
 		return $this->getData()["respawn"];
 	}
-	
+
+	public function getKit(): string
+	{
+		return $this->getData()["kit"] ?? "default";
+	}
+
 	/**
 	 * @return Player[]
 	 */
-	public function getPlayers(): array{
+	public function getPlayers(): array
+	{
 		return $this->players;
 	}
-	
+
 	/**
 	 * @param Player $player
 	 * @return bool
 	 */
-	public function isProtected(Player $player): bool{
-		return isset($this->protect[$player->getName()]);
+	public function isProtected(Player $player): bool
+	{
+		return isset($this->respawnProtection[$player->getName()]);
 	}
 
-	public function getProtectTime(Player $player): int{
-		return $this->protect[$player->getName()] ?? 0;
+	public function getProtectTime(Player $player): int
+	{
+		return $this->respawnProtection[$player->getName()] ?? 0;
 	}
-	
-	public function inArena(Player $player): bool{
+
+	public function inArena(Player $player): bool
+	{
 		return isset($this->players[$player->getName()]) ? true : false;
 	}
-	
-	public function new(Player $player, string $objectiveName, string $displayName): void{
-		if(isset($this->scoreboards[$player->getName()])){
+
+	public function new(Player $player, string $objectiveName, string $displayName): void
+	{
+		if (isset($this->scoreboards[$player->getName()])) {
 			$this->remove($player);
 		}
 
-		if($player->isConnected()) $player->getNetworkSession()->sendDataPacket(
+		if ($player->isConnected()) $player->getNetworkSession()->sendDataPacket(
 			SetDisplayObjectivePacket::create(
 				SetDisplayObjectivePacket::DISPLAY_SLOT_SIDEBAR,
 				$objectiveName,
@@ -145,21 +162,23 @@ class Arena
 		$this->scoreboards[$player->getName()] = $objectiveName;
 	}
 
-	public function remove(Player $player): void{
+	public function remove(Player $player): void
+	{
 		$objectiveName = $this->getObjectiveName($player) ?? "ffa";
-		if($player->isConnected()) $player->getNetworkSession()->sendDataPacket(
+		if ($player->isConnected()) $player->getNetworkSession()->sendDataPacket(
 			RemoveObjectivePacket::create($objectiveName)
 		);
 		unset($this->scoreboards[$player->getName()]);
 	}
 
-	public function setLine(Player $player, int $score, string $message): void{
-		if(!isset($this->scoreboards[$player->getName()])){
+	public function setLine(Player $player, int $score, string $message): void
+	{
+		if (!isset($this->scoreboards[$player->getName()])) {
 			$this->getPlugin()->getLogger()->error("You cannot set a score for a player with no scoreboard.");
 			return;
 		}
 
-		if($score > 15 || $score < 1){
+		if ($score > 15 || $score < 1) {
 			$this->getPlugin()->getLogger()->error("Score must be between the value of 1-15. $score out of range");
 			return;
 		}
@@ -173,84 +192,89 @@ class Arena
 		$entry->score = $score;
 		$entry->scoreboardId = $score;
 
-		if($player->isConnected()) $player->getNetworkSession()->sendDataPacket(SetScorePacket::create(
+		if ($player->isConnected()) $player->getNetworkSession()->sendDataPacket(SetScorePacket::create(
 			SetScorePacket::TYPE_CHANGE,
 			[$entry]
 		));
 	}
 
-	public function getObjectiveName(Player $player): ?string{
+	public function getObjectiveName(Player $player): ?string
+	{
 		return isset($this->scoreboards[$player->getName()]) ? $this->scoreboards[$player->getName()] : null;
 	}
-	
-	public function getWorld(?string $name = null): ?World{
-		if($name === null){
+
+	public function getWorld(?string $name = null): ?World
+	{
+		if ($name === null) {
 			$this->getPlugin()->getServer()->getWorldManager()->loadWorld($this->getWorldName());
 			return $this->getPlugin()->getServer()->getWorldManager()->getWorldByName($this->getWorldName());
 		}
 		return $this->getPlugin()->getServer()->getWorldManager()->getWorldByName($name);
 	}
-	
-	public function broadcastMessage(string $message){
-		foreach ($this->getPlayers() as $player){
-			if($player->isConnected()) $player->sendMessage($message);
+
+	public function broadcastMessage(string $message): void
+	{
+		foreach ($this->getPlayers() as $player) {
+			if ($player->isConnected()) $player->sendMessage($message);
 		}
 	}
-	
-	public function joinPlayer(Player $player): bool{
-		if(isset($this->players[$player->getName()])){
+
+	public function joinPlayer(Player $player): bool
+	{
+		if (isset($this->players[$player->getName()])) {
 			return false;
 		}
 
 		$lobby = $this->getLobby();
-		
-		if(empty($lobby)){
-			if($player->hasPermission("ffa.command.admin")){
+
+		if (empty($lobby)) {
+			if ($player->hasPermission("ffa.command.admin")) {
 				$player->sendMessage(TF::RED . "Please set lobby position. Usage: /ffa setlobby");
 			}
 			return false;
 		}
 
-		if(empty($this->getRespawn())){
-			if($player->hasPermission("ffa.command.admin")){
+		if (empty($this->getRespawn())) {
+			if ($player->hasPermission("ffa.command.admin")) {
 				$player->sendMessage(TF::RED . "Please set respawn position. Usage: /ffa setrespawn");
 			}
 			return false;
 		}
-		
+
 		$x = floatval($lobby["PX"]);
 		$y = floatval($lobby["PY"]);
 		$z = floatval($lobby["PZ"]);
 		$yaw = floatval($lobby["YAW"]);
 		$pitch = floatval($lobby["PITCH"]);
-		
+
 		$player->teleport(new Position($x, $y, $z, $this->getWorld()), $yaw, $pitch);
-		
-		$player->setGamemode(GameMode::ADVENTURE()); 
+
+		$player->setGamemode(GameMode::ADVENTURE());
 		$this->addItems($player);
-		
+
 		$this->players[$player->getName()] = $player;
-		
+
 		$this->broadcastMessage(Utils::messageFormat($this->getPlugin()->getConfig()->get("join-message"), $player, $this));
-		
-		if($this->getPlugin()->getConfig()->get("join-and-respawn-protected") === true){
-			$this->protect[$player->getName()] = $this->getPlugin()->getConfig()->get("protected-time", 3);
+
+		if ($this->getPlugin()->getConfig()->get("join-and-respawn-protected") === true) {
+			$this->respawnProtection[$player->getName()] = $this->getPlugin()->getConfig()->get("protected-time", 3);
 			$player->sendMessage(Utils::messageFormat($this->getPlugin()->getConfig()->get("protected-message"), $player, $this));
 		}
 
 		return true;
 	}
-	
-	public function quitPlayer(Player $player): bool{
-		
-		if(!isset($this->players[$player->getName()])){
+
+	public function quitPlayer(Player $player): bool
+	{
+
+		if (!isset($this->players[$player->getName()])) {
 			return false;
 		}
-		
+
 		unset($this->players[$player->getName()]);
-		
+
 		$this->remove($player);
-		
+
 		$player->teleport($this->getPlugin()->getServer()->getWorldManager()->getDefaultWorld()->getSafeSpawn());
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
@@ -260,16 +284,17 @@ class Arena
 		$player->setGamemode($this->getPlugin()->getServer()->getGamemode());
 		$player->setHealth($player->getMaxHealth());
 		$player->getHungerManager()->setFood($player->getHungerManager()->getMaxFood());
-		
+
 		$this->broadcastMessage(Utils::messageFormat($this->getPlugin()->getConfig()->get("leave-message"), $player, $this));
 		return true;
 	}
-	
-	public function killPlayer(Player $player): void{
+
+	public function killPlayer(Player $player): void
+	{
 		$message = null;
 		$event = $player->getLastDamageCause();
-		
-		if($event === null){
+
+		if ($event === null) {
 			return;
 		}
 
@@ -278,20 +303,20 @@ class Arena
 		$player->getOffHandInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
 		$player->getEffects()->clear();
-		
+
 		$player->setGamemode(GameMode::ADVENTURE());
 		$player->setHealth($player->getMaxHealth());
 		$player->getHungerManager()->setFood($player->getHungerManager()->getMaxFood());
 
-		Await::f2c(function () use ($player, $event, $message): Generator{
+		Await::f2c(function () use ($player, $event, $message): Generator {
 			yield from Await::promise(
 				fn(Closure $resolve) => API::addDeath($player, 1, $resolve)
 			);
 
-			switch ($event->getCause()){
+			switch ($event->getCause()) {
 				case EntityDamageEvent::CAUSE_ENTITY_ATTACK:
 					$damager = $event instanceof EntityDamageByEntityEvent ? $event->getDamager() : null;
-					if($damager !== null && $damager instanceof Player){
+					if ($damager !== null && $damager instanceof Player) {
 						$message = str_replace(["{PLAYER}", "{KILLER}", "&"], [$player->getName(), $damager->getName(), TF::ESCAPE], $this->getPlugin()->getConfig()->get("death-attack-message"));
 
 						yield from Await::promise(
@@ -299,84 +324,86 @@ class Arena
 						);
 
 						$kills = yield from Await::promise(
-							fn(Closure $resolve) => API::getKills($damager, fn(ClosureResult $response) => $resolve($response->getValue())) 
+							fn(Closure $resolve) => API::getKills($damager, fn(ClosureResult $response) => $resolve($response->getValue()))
 						);
 
-						if($kills % 5 === 0){
+						if ($kills % 5 === 0) {
 							$messages = $this->getPlugin()->getConfig()->get("kills-messages", []);
-							if(!empty($messages)){
+							if (!empty($messages)) {
 								$killMsg = $messages[array_rand($messages)];
 								$killMsg = Utils::messageFormat($killMsg, $damager, $this);
 								$killMsg = str_replace("{KILLS}", strval($kills), $killMsg);
 								$damager->sendMessage($killMsg);
 							}
 						}
-						
+
 						$damager->setHealth($damager->getMaxHealth());
 						$damager->sendPopup(TF::YELLOW . "+1 Kill");
 						$this->addItems($damager);
 					}
-				break;
-				
+					break;
+
 				case EntityDamageEvent::CAUSE_VOID:
 					$message = str_replace(["{PLAYER}", "&"], [$player->getName(), TF::ESCAPE], $this->getPlugin()->getConfig()->get("death-void-message"));
-				break;
+					break;
 			}
-			
-			if($message !== null){
+
+			if ($message !== null) {
 				$this->broadcastMessage($message);
 			}
 
-			if($this->getPlugin()->getConfig()->get("death-respawn-inMap") === true){
+			if ($this->getPlugin()->getConfig()->get("death-respawn-inMap") === true) {
 				$this->respawn($player);
 			} else {
 				$this->quitPlayer($player);
 			}
 		});
 	}
-	
-	public function respawn(Player $player){
+
+	public function respawn(Player $player): void
+	{
 		$player->setGamemode(GameMode::ADVENTURE());
 		$player->setHealth($player->getMaxHealth());
 		$player->getHungerManager()->setFood($player->getHungerManager()->getMaxFood());
 
 		$this->addItems($player);
-		
+
 		$respawn = $this->getRespawn();
 		$x = floatval($respawn["PX"]);
 		$y = floatval($respawn["PY"]);
 		$z = floatval($respawn["PZ"]);
 		$yaw = floatval($respawn["YAW"]);
 		$pitch = floatval($respawn["PITCH"]);
-		
+
 		$player->teleport(new Position($x, $y, $z, $this->getWorld()), $yaw, $pitch);
-		
-		if($this->getPlugin()->getConfig()->get("join-and-respawn-protected") === true){
-			$this->protect[$player->getName()] = $this->getPlugin()->getConfig()->get("protected-time", 3);
-			$player->sendMessage(str_replace(["{PLAYER}", "{TIME}", "&"], [$player->getName(), strval($this->protect[$player->getName()]), TF::ESCAPE], $this->getPlugin()->getConfig()->get("protected-message")));
+
+		if ($this->getPlugin()->getConfig()->get("join-and-respawn-protected") === true) {
+			$this->respawnProtection[$player->getName()] = $this->getPlugin()->getConfig()->get("protected-time", 3);
+			$player->sendMessage(str_replace(["{PLAYER}", "{TIME}", "&"], [$player->getName(), strval($this->respawnProtection[$player->getName()]), TF::ESCAPE], $this->getPlugin()->getConfig()->get("protected-message")));
 		}
-		
+
 		$player->sendTitle(Utils::messageFormat($this->getPlugin()->getConfig()->get("respawn-message"), $player, $this));
 	}
 
-	private function addItems(Player $player){
+	private function addItems(Player $player): void
+	{
 		$player->getInventory()->clearAll();
 		$player->getArmorInventory()->clearAll();
 		$player->getOffHandInventory()->clearAll();
 		$player->getCraftingGrid()->clearAll();
 		$player->getEffects()->clear();
-		
-		$defaultKit = $this->getPlugin()->getKits()["default"];
 
-		$items = $defaultKit["items"];
-		$armors = $defaultKit["armors"];
+		$kitInfo = $this->getPlugin()->getKits()[$this->getKit()] ?? [];
 
-		foreach ($items as $slot => $item){
+		$items = $kitInfo["items"] ?? [];
+		$armors = $kitInfo["armors"] ?? [];
+
+		foreach ($items as $slot => $item) {
 			$player->getInventory()->setItem(intval($slot), $item);
 		}
-		
-		foreach ($armors as $type => $item){
-			switch ($type){
+
+		foreach ($armors as $type => $item) {
+			switch ($type) {
 				case "helmet":
 					$player->getArmorInventory()->setHelmet($item);
 					break;
@@ -392,42 +419,45 @@ class Arena
 			}
 		}
 	}
-	
-	public function tick(){
-		foreach ($this->getPlayers() as $player){
-			if(!$player->isConnected()) continue;
 
-			API::getKills($player, function (ClosureResult $response) use ($player){
-				$kills = $response->getValue();
-				API::getDeaths($player, function (ClosureResult $response) use ($player, $kills){
-					$deaths = $response->getValue();
+	public function tick(): void
+	{
+		foreach ($this->getPlayers() as $player) {
+			if (!$player->isConnected()) continue;
 
-					$this->new($player, "ffa", Main::$scoreboard_lines[$this->scoreboardsLine]);
-					$this->setLine($player, 1, " ");
-					$this->setLine($player, 2, " Players: " . TF::YELLOW . count($this->getPlayers()) . "  ");
-					$this->setLine($player, 3, "  ");
-					$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getName() . "  ");
-					$this->setLine($player, 5, "   ");
-					$this->setLine($player, 6, " Kills: " . TF::YELLOW . $kills . " ");
-					$this->setLine($player, 7, " Deaths: " . TF::YELLOW . $deaths . " ");
-					$this->setLine($player, 8, "    ");
-					$this->setLine($player, 9, " " . str_replace("&", TF::ESCAPE, $this->getPlugin()->getConfig()->get("scoreboardIp", "play.example.net") . " "));
-				});
+			API::getPlayerInfo($player, function (ClosureResult $response) use ($player) {
+				if ($response->isFailure()) {
+					return;
+				}
+
+				$info = $response->getValue();
+				$this->new($player, "ffa", Main::$scoreboard_lines[$this->scoreboardsLine]);
+				$this->setLine($player, 1, " ");
+				$this->setLine($player, 2, " Players: " . TF::YELLOW . count($this->getPlayers()) . "  ");
+				$this->setLine($player, 3, "  ");
+				$this->setLine($player, 4, " Map: " . TF::YELLOW . $this->getName() . "  ");
+				$this->setLine($player, 5, "   ");
+				$this->setLine($player, 6, " Kills: " . TF::YELLOW . ($info["kills"] ?? 0) . " ");
+				$this->setLine($player, 7, " Kill Streak: " . TF::YELLOW . ($info["kill_streak"] ?? 0) . " ");
+				$this->setLine($player, 8, " Deaths: " . TF::YELLOW . ($info["deaths"] ?? 0) . " ");
+				$this->setLine($player, 9, "    ");
+				$this->setLine($player, 10, " " . TF::colorize($this->getPlugin()->getConfig()->get("scoreboardIp", "play.example.net")) . " ");
 			});
 		}
-		
-		if($this->scoreboardsLine == (count(Main::$scoreboard_lines) - 1)){
+
+		if ($this->scoreboardsLine == (count(Main::$scoreboard_lines) - 1)) {
 			$this->scoreboardsLine = 0;
 		} else {
 			++$this->scoreboardsLine;
 		}
-		
-		foreach ($this->protect as $name => $time){
-			if($time == 0){
-				unset($this->protect[$name]);
-			} else {
-				$this->protect[$name]--;
+
+		foreach ($this->respawnProtection as $name => $time) {
+			if ($time === 0) {
+				unset($this->respawnProtection[$name]);
+				continue;
 			}
+
+			$this->respawnProtection[$name]--;
 		}
 	}
 }

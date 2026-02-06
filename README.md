@@ -1,44 +1,49 @@
-
 <div align="center">
 	<h1>Free For All</h1>
-  <h3>(FFA, or Free for All) is a survival and fighting game where the game begins and you have to fight to survive.</h3>
+	<h3>(FFA, or Free for All) is a survival fighting game where you fight to be the last one standing.</h3>
 </div>
 
 # Dependencies
 - [BanCommands](https://poggit.pmmp.io/p/BanCommands)
 
 # How to create an arena
-- Teleport to the world who need to make an arena in it.
-- First, type `/ffa create "your arena name"` to create the arena.
-- Now go to the arena lobby and type `/ffa setlobby` to set it.
-- Okay, now go to the respawn position and type `/ffa setrespawn` that will return to it after death (you can turn it on or off from the config).
-- Use `/ffa reload` to load the arena.
-- Great, you are now ready to play. Type `/ffa join "your arena name."` enjoy. If you want to leave the game, type `/ffa quit'.
+1. Teleport to the world where you want to make an arena.
+2. Type `/ffa create <arena name> [kitName:optional]` to create the arena.
+3. Go to the arena lobby and type `/ffa setlobby` to set the lobby position.
+4. Go to the respawn position and type `/ffa setrespawn`. Players will return here after death (you can toggle this in the config).
+5. You can also set a kit using `/ffa setkit <kitName>`.
+6. Use `/ffa reload` to load the arena.
+7. You're now ready to play. Type `/ffa join "arena name"` to join. To leave the game, type `/ffa quit`.
 
-# the configure
-- <h1>Formats</h1> 
-- `{PLAYER}` : to get the player's name
-- `{ARENA} or {GAME}` : to get the arena name
+# Configuration
+## Formats
+- `{PLAYER}` : player's name
+- `{ARENA}` or `{GAME}` : arena name
 - `&` : same as `§`
-- `{WORLD}` : to get the arena's world name
-- `{PLAYERS}` : to get arena players count
-- `{TIME}` : to get player protected time left
-- <h1>General</h1>
-- `scoreboardIp` : You can set your server IP to show it on the game scoreboard.
-- `banned-commands`: You can add the commands you want banned in the game.
-- `death-respawn-inMap` : That will return the player to the respawn position after death; you can set it to `true` or `false`.
-- `join-and-respawn-protected` : that will protect the player for 3 seconds after joining and respawning.
-- `protected-time` : to edit the protected time.
-- `protected-message` : to edit protect message.
-- `death-attack-message` : Here, you can set the death message when killed by someone.
-- `death-void-message` : and here you can set the death message when killed by void.
-- `join-message` : to edit player join message.
-- `leave-message` : to edit player leave message
-- `kills-messages` : To add or remove kill messages, this message will be sent to the player every 5 kills automatically.
-- `scoreboard-title` : to edit the scoreboard title name.
-- `provider` : Currently, it's supported `sqlite3` only; do not change it.
-- `database` : Do not change anything.
-- `kits` : You can edit the default kit right now, for example:
+- `{WORLD}` : arena's world name
+- `{PLAYERS}` : number of players in the arena
+- `{TIME}` : remaining player protection time
+
+## General
+- `scoreboardIp` : Your server IP to show on the game scoreboard.
+- `banned-commands` : Commands you want to ban during the game.
+- `death-respawn-inMap` : If `true`, players respawn at the respawn position; if `false`, they don't.
+- `join-and-respawn-protected` : Protects players for a few seconds after joining or respawning.
+- `protected-time` : Duration of protection in seconds.
+- `protected-message` : Message shown during protection.
+- `death-attack-message` : Death message when killed by another player.
+- `death-void-message` : Death message when killed by the void.
+- `join-message` : Message shown when a player joins.
+- `leave-message` : Message shown when a player leaves.
+- `kills-messages` : Kill messages sent automatically every 5 kills.
+- `scoreboard-title` : Scoreboard title.
+- `provider` : Currently only `sqlite3` is supported; do not change.
+- `database` : Do not change.
+- `kits` : Add as many kits as you want and assign them to arenas.
+
+**Important Note**: When editing messages that contain `&` color codes (like `&c` for red, `&a` for green, etc.), you must wrap the entire message in double quotes (`""`). This ensures YAML correctly parses the `&` symbol as a string character. For example: `join-message: "&aWelcome {PLAYER} to {ARENA}!"` instead of `join-message: &aWelcome {PLAYER} to {ARENA}!`
+
+Example kit configuration:
 ```yaml
 kits:
   default:
@@ -75,69 +80,102 @@ kits:
 ```
 
 # Commands
-Command | Description | Permission
---- | --- | ---
-`/ffa join <ArenaName:optional>` | `To join a specific or random arena` | `No permission`
-`/ffa quit` | `To leave the arena` | `No permission`
-`/ffa help` | `To see the command list` | `ffa.command.admin`
-`/ffa create` | `To create a new arena` | `ffa.command.admin`
-`/ffa remove` | `To delete a specific arena` | `ffa.command.admin`
-`/ffa setlobby` | `To set the lobby position in the arena` | `ffa.command.admin`
-`/ffa setrespawn` | `To set the respawn position in the arena` | `ffa.command.admin`
-`/ffa reload` | `re-loaded the kits and arenas` | `ffa.command.admin`
-`/ffa list` | `To see the arenas list` | `ffa.command.admin`
+| Command | Description | Permission |
+|---------|-------------|------------|
+| `/ffa join [arenaName]` | Join a specific or random arena | No permission |
+| `/ffa quit` | Leave the arena | No permission |
+| `/ffa help` | Show command list | `ffa.command.admin` |
+| `/ffa create <arenaName> [kitName]` | Create a new arena | `ffa.command.admin` |
+| `/ffa remove <arenaName>` | Delete an arena | `ffa.command.admin` |
+| `/ffa setlobby` | Set lobby position | `ffa.command.admin` |
+| `/ffa setrespawn` | Set respawn position | `ffa.command.admin` |
+| `/ffa setkit <kitName>` | Set kit for arena | `ffa.command.admin` |
+| `/ffa spawntop` | Spawn a leaderboard entity | `ffa.command.admin` |
+| `/ffa removetop` | Remove leaderboard entity | `ffa.command.admin` |
+| `/ffa reload` | Reload kits and arenas | `ffa.command.admin` |
+| `/ffa list` | List all arenas | `ffa.command.admin` |
 
 # API
-As of v2.0.0, all the API functions have moved to [API](https://github.com/Laith98Dev/FFA/blob/main/src/Laith98Dev/FFA/API.php).
+As of v2.0.0, all API functions are in [API.php](https://github.com/Laith98Dev/FFA/blob/main/src/Laith98Dev/FFA/API.php).
+
 ```php
 use Laith98Dev\FFA\API;
 use Laith98Dev\FFA\utils\ClosureResult;
 
-// add kills to the player
-API::addKill($PlayerOrPlayerName, $amount, function (ClosureResult $result){
-    if($result->getStatus() == ClosureResult::STATE_SUCCESS){
-        echo "Added `$amount` kills to the player successfully." . PHP_EOL;
+// Add kills to player
+API::addKill($playerOrName, $amount, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        echo "Added $amount kills to player." . PHP_EOL;
     } else {
-        echo "Failed to add kills to the player; reason: " . $result->getValue() . PHP_EOL;
+        echo "Failed: " . $result->getValue() . PHP_EOL;
     }
 });
 
-// add deaths to player
-API::addDeath($PlayerOrPlayerName, $amount, function (ClosureResult $result){
-    if($result->getStatus() == ClosureResult::STATE_SUCCESS){
-        echo "Added `$amount` deaths to the player successfully." . PHP_EOL;
+// Add deaths to player
+API::addDeath($playerOrName, $amount, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        echo "Added $amount deaths to player." . PHP_EOL;
     } else {
-        echo "Failed to add deaths to the player; reason: " . $result->getValue() . PHP_EOL;
+        echo "Failed: " . $result->getValue() . PHP_EOL;
     }
 });
 
-// get player kills
-API::getKills($PlayerOrPlayerName, function (ClosureResult $result){
-    if($result->getStatus() == ClosureResult::STATE_SUCCESS){
-        echo "Player kills is " . $result->getValue() . PHP_EOL;
+// Get player kills
+API::getKills($playerOrName, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        echo "Kills: " . $result->getValue() . PHP_EOL;
     } else {
-        echo "Failed to get player kills; reason: " . $result->getValue() . PHP_EOL;
+        echo "Failed: " . $result->getValue() . PHP_EOL;
     }
 });
 
-// get player deaths
-API::getDeaths($PlayerOrPlayerName, function (ClosureResult $result){
-    if($result->getStatus() == ClosureResult::STATE_SUCCESS){
-        echo "Player deaths is " . $result->getValue() . PHP_EOL;
+// Get player deaths
+API::getDeaths($playerOrName, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        echo "Deaths: " . $result->getValue() . PHP_EOL;
     } else {
-        echo "Failed to get player deaths; reason: " . $result->getValue() . PHP_EOL;
+        echo "Failed: " . $result->getValue() . PHP_EOL;
     }
 });
 
-// Check if an arena exists
-API::isValidArena($arena_name, function (ClosureResult $result){
+// Get player kill streak
+API::getKillStreak($playerOrName, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        echo "Kill streak: " . $result->getValue() . PHP_EOL;
+    } else {
+        echo "Failed: " . $result->getValue() . PHP_EOL;
+    }
+});
+
+// Get top leaderboard
+// $type: "kills", "deaths", "killstreak"
+// $amount: number of top players (e.g., 10)
+API::getTops($type, $amount, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        print_r($result->getValue());
+    } else {
+        echo "Failed: " . $result->getValue() . PHP_EOL;
+    }
+});
+
+// Get full player stats (kills, deaths, kill_streak)
+API::getPlayerInfo($playerOrName, function(ClosureResult $result) {
+    if($result->isSuccess()){
+        $info = $result->getValue();
+        echo "Kills: " . $info["kills"] . ", Deaths: " . $info["deaths"] . ", Kill Streak: " . $info["kill_streak"] . PHP_EOL;
+    } else {
+        echo "Failed: " . $result->getValue() . PHP_EOL;
+    }
+});
+
+// Check if arena exists
+API::isValidArena($arenaName, function(ClosureResult $result) {
     if($result->getValue()){
-        echo "Arena exists" . PHP_EOL;
+        echo "Arena exists." . PHP_EOL;
     } else {
         echo "Arena doesn't exist." . PHP_EOL;
     }
 });
-
 ```
 
 # Other

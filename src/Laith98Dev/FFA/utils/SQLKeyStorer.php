@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA\utils;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -37,19 +37,31 @@ namespace Laith98Dev\FFA\utils;
  * 	
  */
 
-class SQLKeyStorer {
+class SQLKeyStorer
+{
+    public const PREFIX = "ffa.";
 
-    public const INIT = "ffa.init";
-    public const ADD_ARENA = "ffa.add-arena";
-    public const DELETE_ARENA = "ffa.delete-arena";
-    public const GET_ARENA = "ffa.get-arena";
-    public const GET_ARENAS = "ffa.get-arenas";
+    public const INIT = self::PREFIX . "init";
 
-    public const ADD_KILLS = "ffa.add-kills";
-    public const ADD_DEATHS = "ffa.add-deaths";
-    public const GET_KILLS = "ffa.get-kills";
-    public const GET_DEATHS = "ffa.get-deaths";
-    public const UPDATE_LOBBY = "ffa.update-lobby";
-    public const UPDATE_RESPAWN = "ffa.update-respawn";
+    public const ADD_KIT_COLUMN = self::PREFIX . "add-kit-column";
+    public const ADD_KIT_STREAK_COLUMN = self::PREFIX . "add-kill-streak-column";
 
+    public const ADD_ARENA = self::PREFIX . "add-arena";
+    public const DELETE_ARENA = self::PREFIX . "delete-arena";
+    public const GET_ARENA = self::PREFIX . "get-arena";
+    public const GET_ARENAS = self::PREFIX . "get-arenas";
+    
+    public const GET_TOPS = self::PREFIX . "get-tops";
+    public const GET_PLAYER_INFO = self::PREFIX . "get-player-info";
+
+    public const ADD_KILLS = self::PREFIX . "add-kills";
+    public const ADD_DEATHS = self::PREFIX . "add-deaths";
+
+    public const GET_KILLS = self::PREFIX . "get-kills";
+    public const GET_KILL_STREAK = self::PREFIX . "get-kill-streak";
+    public const GET_DEATHS = self::PREFIX . "get-deaths";
+
+    public const UPDATE_LOBBY = self::PREFIX . "update-lobby";
+    public const UPDATE_RESPAWN = self::PREFIX . "update-respawn";
+    public const UPDATE_KIT = self::PREFIX . "update-kit";
 }

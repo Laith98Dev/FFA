@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA\utils;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -45,7 +45,7 @@ class ClosureResult
     public function __construct(
         private int $status,
         private mixed $value = null
-    ){
+    ) {
         // NOOP
     }
 
@@ -57,6 +57,16 @@ class ClosureResult
     public function getValue(): mixed
     {
         return $this->value;
+    }
+
+    public function isFailure(): bool
+    {
+        return $this->status === self::STATE_FAILURE;
+    }
+
+    public function isSuccess(): bool
+    {
+        return $this->status === self::STATE_SUCCESS;
     }
 
     public static function create(int $status, mixed $value = null): self

@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA\utils;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -41,9 +41,10 @@ use Laith98Dev\FFA\game\Arena;
 use pocketmine\player\Player;
 use pocketmine\utils\TextFormat;
 
-class Utils {
-
-    public static function messageFormat(string $msg, Player $player, Arena $game){
+class Utils
+{
+    public static function messageFormat(string $msg, Player $player, Arena $game): string
+    {
         $index = [
             "{PLAYER}" => $player->getName(),
             "{ARENA}" => $game->getName(),

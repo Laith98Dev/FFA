@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -38,6 +38,7 @@ namespace Laith98Dev\FFA;
  */
 
 use Closure;
+use Laith98Dev\FFA\entity\LeaderboardEntity;
 use Laith98Dev\FFA\utils\ClosureResult;
 use Laith98Dev\FFA\utils\SQLKeyStorer;
 use pocketmine\player\Player;
@@ -53,9 +54,10 @@ class API
      * @param Closure|null  $onSuccess : <code>function(ClosureResult $result) : void{}</code>
      * @return void
      */
-    public static function addKill(Player|string $player, int $amount, Closure $onSuccess): void{
-		$name = $player instanceof Player ? $player->getName() : $player;
-        Main::getInstaance()->getProvider()->db()->executeChange(
+    public static function addKill(Player|string $player, int $amount, Closure $onSuccess): void
+    {
+        $name = $player instanceof Player ? $player->getName() : $player;
+        Main::getInstance()->getProvider()->db()->executeChange(
             SQLKeyStorer::ADD_KILLS,
             [
                 "player" => $name,
@@ -74,8 +76,8 @@ class API
                 )
             )
         );
-	}
-	
+    }
+
     /**
      * This function allows you to add a specific count of deaths to a specific player.
      *
@@ -84,9 +86,10 @@ class API
      * @param Closure       $onSuccess : <code>function(ClosureResult $result) : void{}</code>
      * @return void
      */
-	public static function addDeath(Player|string $player, int $amount, Closure $onSuccess){
+    public static function addDeath(Player|string $player, int $amount, Closure $onSuccess): void
+    {
         $name = $player instanceof Player ? $player->getName() : $player;
-        Main::getInstaance()->getProvider()->db()->executeChange(
+        Main::getInstance()->getProvider()->db()->executeChange(
             SQLKeyStorer::ADD_DEATHS,
             [
                 "player" => $name,
@@ -105,8 +108,8 @@ class API
                 )
             )
         );
-	}
-	
+    }
+
     /**
      * This function allows you to get the kill count of a specific player.
      *
@@ -114,9 +117,10 @@ class API
      * @param Closure       $onSuccess : <code>function(ClosureResult $result) : void{}</code>
      * @return void
      */
-	public static function getKills(Player|string $player, Closure $onSuccess){
+    public static function getKills(Player|string $player, Closure $onSuccess): void
+    {
         $name = $player instanceof Player ? $player->getName() : $player;
-        Main::getInstaance()->getProvider()->db()->executeSelect(
+        Main::getInstance()->getProvider()->db()->executeSelect(
             SQLKeyStorer::GET_KILLS,
             [
                 "player" => $name
@@ -134,8 +138,38 @@ class API
                 )
             )
         );
-	}
-	
+    }
+
+    /**
+     * This function retrieves the top players leaderboard for a specific statistic type.
+     *
+     * @param Player|string $player
+     * @param Closure       $onSuccess : <code>function(ClosureResult $result) : void{}</code>
+     * @return void
+     */
+    public static function getKillStreak(Player|string $player, Closure $onSuccess): void
+    {
+        $name = $player instanceof Player ? $player->getName() : $player;
+        Main::getInstance()->getProvider()->db()->executeSelect(
+            SQLKeyStorer::GET_KILL_STREAK,
+            [
+                "player" => $name
+            ],
+            fn(array $rows) => $onSuccess(
+                ClosureResult::create(
+                    ClosureResult::STATE_SUCCESS,
+                    (isset($rows[0]) ? $rows[0]["kill_streak"] : 0)
+                )
+            ),
+            fn(SqlError $err) => $onSuccess(
+                ClosureResult::create(
+                    ClosureResult::STATE_FAILURE,
+                    $err->getMessage()
+                )
+            )
+        );
+    }
+
     /**
      * This function allows you to get the death count of a specific player.
      *
@@ -143,9 +177,10 @@ class API
      * @param Closure       $onSuccess : <code>function(ClosureResult $result) : void{}</code>
      * @return void
      */
-	public static function getDeaths(Player|string $player, Closure $onSuccess){
+    public static function getDeaths(Player|string $player, Closure $onSuccess): void
+    {
         $name = $player instanceof Player ? $player->getName() : $player;
-        Main::getInstaance()->getProvider()->db()->executeSelect(
+        Main::getInstance()->getProvider()->db()->executeSelect(
             SQLKeyStorer::GET_DEATHS,
             [
                 "player" => $name
@@ -163,7 +198,73 @@ class API
                 )
             )
         );
-	}
+    }
+
+    /**
+     * Get the top players leaderboard for a specific statistic.
+     *
+     * @param string  $type The type of statistic (e.g., "kills", "deaths", "killstreak")
+     * @param int     $amount Number of top players to retrieve
+     * @param Closure $onSuccess Callback when query succeeds: <code>function(ClosureResult $result): void {}</code>
+     * @throws \RuntimeException If the statistic type is invalid
+     * @return void
+     */
+    public static function getTops(string $type, int $amount, Closure $onSuccess): void
+    {
+        if (!in_array($type, LeaderboardEntity::$topsTypes)) {
+            throw new \RuntimeException("Invalid top type provided!");
+        }
+
+        Main::getInstance()->getProvider()->db()->executeSelect(
+            SQLKeyStorer::GET_TOPS,
+            [
+                "type" => $type,
+                "amount" => $amount,
+            ],
+            fn(array $rows) => $onSuccess(
+                ClosureResult::create(
+                    ClosureResult::STATE_SUCCESS,
+                    $rows
+                )
+            ),
+            fn(SqlError $err) => $onSuccess(
+                ClosureResult::create(
+                    ClosureResult::STATE_FAILURE,
+                    $err->getMessage()
+                )
+            )
+        );
+    }
+
+    /**
+     * This function allows you to get player statistics (kills, deaths, kill_streak).
+     *
+     * @param Player|string $player
+     * @param Closure       $onSuccess : <code>function(ClosureResult $result) : void{}</code>
+     * @return void
+     */
+    public static function getPlayerInfo(Player|string $player, Closure $onSuccess): void
+    {
+        $name = $player instanceof Player ? $player->getName() : $player;
+        Main::getInstance()->getProvider()->db()->executeSelect(
+            SQLKeyStorer::GET_PLAYER_INFO,
+            [
+                "player" => $name
+            ],
+            fn(array $rows) => $onSuccess(
+                ClosureResult::create(
+                    ClosureResult::STATE_SUCCESS,
+                    (isset($rows[0]) ? $rows[0] : ["kills" => 0, "deaths" => 0, "kill_streak" => 0])
+                )
+            ),
+            fn(SqlError $err) => $onSuccess(
+                ClosureResult::create(
+                    ClosureResult::STATE_FAILURE,
+                    $err->getMessage()
+                )
+            )
+        );
+    }
 
     /**
      * This function allows you to check if the arena exists.
@@ -174,7 +275,7 @@ class API
      */
     public static function isValidArena(string $name, Closure $onSuccess): void
     {
-        Main::getInstaance()->getProvider()->db()->executeSelect(
+        Main::getInstance()->getProvider()->db()->executeSelect(
             SQLKeyStorer::GET_ARENA,
             [
                 "name" => $name

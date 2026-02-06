@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA\tasks;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -41,16 +41,17 @@ use pocketmine\scheduler\Task;
 
 use Laith98Dev\FFA\Main;
 
-class ArenasTask extends Task {
-
+class ArenasTask extends Task
+{
 	public function __construct(
 		private Main $plugin
-	){
+	) {
 		// NOOP
 	}
-	
-	public function onRun(): void{
-		foreach ($this->plugin->getArenas() as $arena){
+
+	public function onRun(): void
+	{
+		foreach ($this->plugin->getArenas() as $arena) {
 			$arena->tick();
 		}
 	}

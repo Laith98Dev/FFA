@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA\providers;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -44,17 +44,18 @@ use poggit\libasynql\libasynql;
 use poggit\libasynql\SqlError;
 use poggit\libasynql\DataConnector;
 
-class DefaultProvider {
-
+class DefaultProvider
+{
     private DataConnector $db;
 
     public function __construct(
         private Main $plugin
-    ){
+    ) {
         $this->init();
     }
 
-    public function init(){
+    public function init(): void
+    {
         if ($this->plugin->isDisabled()) return;
 
         try {
@@ -77,7 +78,10 @@ class DefaultProvider {
                 $error = $error_;
             }
         );
-		
+
+        $db->executeChange(SQLKeyStorer::ADD_KIT_COLUMN, [], fn() => null, fn() => null);
+        $db->executeChange(SQLKeyStorer::ADD_KIT_STREAK_COLUMN, [], fn() => null, fn() => null);
+
         $db->waitAll();
 
         if ($error !== null) {
@@ -85,8 +89,8 @@ class DefaultProvider {
         }
     }
 
-    public function db(){
+    public function db(): DataConnector
+    {
         return $this->db;
     }
-
 }

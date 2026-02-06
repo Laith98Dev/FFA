@@ -14,7 +14,7 @@ namespace Laith98Dev\FFA;
  *	| |___| (_| | | |_| | | |/ /| (_) | |__| |  __/\ V / 
  *	|______\__,_|_|\__|_| |_/_/  \___/|_____/ \___| \_/  
  *	
- *	Copyright (C) 2024 Laith98Dev
+ *	Copyright (C) 2025 Laith98Dev
  *  
  *  Youtube: Laith Youtuber
  *  Discord: Laith98Dev#0695 or @u.oo
@@ -42,6 +42,7 @@ use Exception;
 use Generator;
 use Laith98Dev\BanCommands\Main as BanCommands;
 use Laith98Dev\FFA\commands\FFACommand;
+use Laith98Dev\FFA\entity\LeaderboardEntity;
 use Laith98Dev\FFA\game\Arena;
 use Laith98Dev\FFA\providers\DefaultProvider;
 use Laith98Dev\FFA\tasks\ArenasTask;
@@ -50,7 +51,8 @@ use Laith98Dev\FFA\utils\SQLKeyStorer;
 
 use pocketmine\data\bedrock\EnchantmentIdMap;
 use pocketmine\data\bedrock\EnchantmentIds;
-
+use pocketmine\entity\EntityDataHelper;
+use pocketmine\entity\EntityFactory;
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
 
@@ -62,23 +64,28 @@ use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\event\player\PlayerExhaustEvent;
 use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockPlaceEvent;
-
+use pocketmine\event\entity\EntityMotionEvent;
 use pocketmine\item\enchantment\EnchantmentInstance;
 use pocketmine\item\enchantment\StringToEnchantmentParser;
 use pocketmine\item\LegacyStringToItemParser;
 use pocketmine\item\StringToItemParser;
+use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\player\Player;
 
-use pocketmine\utils\{Config, TextFormat as TF};
+use pocketmine\utils\{Config, SingletonTrait, TextFormat as TF};
+use pocketmine\world\World;
 use poggit\libasynql\SqlError;
 use SOFe\AwaitGenerator\Await;
 
 class Main extends PluginBase implements Listener
 {
+	use SingletonTrait {
+		reset as private;
+		setInstance as private;
+	}
+
 	/** @var Arena[] */
 	private array $arenas = [];
-
-	private static self $instance;
 
 	private DefaultProvider $provider;
 
@@ -166,17 +173,15 @@ class Main extends PluginBase implements Listener
 
 	public static array $scoreboard_lines = [];
 
-	public function onLoad(): void{
-		self::$instance = $this;
+	public function onLoad(): void
+	{
+		self::setInstance($this);
 	}
 
-	public static function getInstaance(): Main{
-		return self::$instance;
-	}
-	
-	public function onEnable(): void{
+	public function onEnable(): void
+	{
 		@mkdir($this->getDataFolder());
-		
+
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 
 		$this->getScheduler()->scheduleRepeatingTask(new ArenasTask($this), 20);
@@ -184,53 +189,57 @@ class Main extends PluginBase implements Listener
 		$this->getServer()->getCommandMap()->register($this->getName(), new FFACommand($this));
 
 		$this->banCommands = $this->getServer()->getPluginManager()->getPlugin("BanCommands");
-		
+
 		$this->initConfig();
 		$this->setProvider();
 		$this->loadKits();
 		$this->loadArenas();
 		$this->loadBannedCommands();
+		$this->registerEntities();
 		$this->setScoreTitle();
 	}
 
 	/**
 	 * @return BanCommands
 	 */
-	public function getBanManager(): BanCommands{
+	public function getBanManager(): BanCommands
+	{
 		return $this->banCommands;
 	}
-	
+
 	/**
 	 * @return void
 	 */
-	private function initConfig(){
-		if(!is_file($this->getDataFolder() . "config.yml")){
+	private function initConfig(): void
+	{
+		if (!is_file($this->getDataFolder() . "config.yml")) {
 			(new Config($this->getDataFolder() . "config.yml", Config::YAML, $this->defaultData));
 		} else {
 			$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML);
 			$all = $cfg->getAll();
-			foreach (array_keys($this->defaultData) as $key){
-				if(!isset($all[$key])){
+			foreach (array_keys($this->defaultData) as $key) {
+				if (!isset($all[$key])) {
 					rename($this->getDataFolder() . "config.yml", $this->getDataFolder() . "config_old.yml");
-					
+
 					(new Config($this->getDataFolder() . "config.yml", Config::YAML, $this->defaultData));
-					
+
 					break;
 				}
 			}
 		}
 	}
 
-	private function setScoreTitle(){
+	private function setScoreTitle(): void
+	{
 		$index = [];
 		$title = $this->getConfig()->get("scoreboard-title", "FFA");
 
 		$index[] = TF::BOLD . TF::YELLOW . $title;
 		$v = 0;
-		for ($i = 0; $i < strlen($title); $i++){
+		for ($i = 0; $i < strlen($title); $i++) {
 			$final = "";
-			for($i_ = 0; $i_ < strlen($title); $i_++){
-				if($i_ == $v){
+			for ($i_ = 0; $i_ < strlen($title); $i_++) {
+				if ($i_ == $v) {
 					$final .= TF::BOLD . TF::WHITE . $title[$i_];
 				} else {
 					$final .= TF::BOLD . TF::YELLOW . $title[$i_];
@@ -247,14 +256,15 @@ class Main extends PluginBase implements Listener
 	/**
 	 * @return void
 	 */
-	private function setProvider(): void{
+	private function setProvider(): void
+	{
 		$prov = $this->getConfig()->get("provider");
-		$provider = match (strtolower($prov)){
+		$provider = match (strtolower($prov)) {
 			"sqlite" => new DefaultProvider($this),
 			default => null
 		};
 
-		if($provider === null){
+		if ($provider === null) {
 			$this->getLogger()->error("Invalid provider, expected 'sqlite', but got '" . strval($prov) . "'");
 			$this->getServer()->getPluginManager()->disablePlugin($this);
 			return;
@@ -267,45 +277,46 @@ class Main extends PluginBase implements Listener
 	 * @internal This function could change anytime without warning.
 	 * @return void
 	 */
-	public function loadKits(): void{
+	public function loadKits(): void
+	{
 		$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML, $this->defaultData);
 		$kits = $cfg->get("kits", []);
 
-		foreach ($kits as $name => $data){
+		foreach ($kits as $name => $data) {
 			$items = [];
 			$armors = [];
 
-			foreach ($data as $slot_ => $slotData){
-				if(str_starts_with($slot_, "slot-") !== false){
+			foreach ($data as $slot_ => $slotData) {
+				if (str_starts_with($slot_, "slot-") !== false) {
 					$slot = str_replace("slot-", "", $slot_);
-					foreach (["id", "count", "enchants"] as $key){
-						if(!isset($slotData[$key])){
+					foreach (["id", "count", "enchants"] as $key) {
+						if (!isset($slotData[$key])) {
 							$this->getLogger()->error("Failed to load default kit, Error: Missing a required key of slot #" . $slot . " (" . $key . ")");
 							$this->getServer()->getPluginManager()->disablePlugin($this);
 							continue;
 						}
 					}
 
-					$id = $slotData["id"] ?? 0;
+					$id = strval($slotData["id"] ?? 0);
 					$count = $slotData["count"] ?? 1;
 					$enchants = $slotData["enchants"] ?? [];
 
-					try{
-						$item = LegacyStringToItemParser::getInstance()->parse($id) ?? StringToItemParser::getInstance()->parse($id);
+					try {
+						$item = StringToItemParser::getInstance()->parse($id) ?? LegacyStringToItemParser::getInstance()->parse($id);
 						$item->setCount($count);
-					} catch (Exception){
+					} catch (Exception) {
 						$this->getLogger()->error("'" . $name . "' kit has an invalid item identifier: '" . $id . "'");
 						continue;
 					}
 
-					if($item->isNull()){
+					if ($item->isNull()) {
 						continue;
 					}
 
-					if(count($enchants) > 0){
-						foreach ($enchants as $id_ => $enchantData){
+					if (count($enchants) > 0) {
+						foreach ($enchants as $id_ => $enchantData) {
 							$eId = str_replace("id-", "", $id_);
-							if(!isset($enchantData["level"])){
+							if (!isset($enchantData["level"])) {
 								$this->getLogger()->error("Failed to load '" . $name . "' kit, Error: Missing a required key of enchant for item " . $eId . " (level)");
 								$this->getServer()->getPluginManager()->disablePlugin($this);
 								continue;
@@ -315,7 +326,7 @@ class Main extends PluginBase implements Listener
 
 							try {
 								$enchantment = EnchantmentIdMap::getInstance()->fromId(intval($eId)) ?? StringToEnchantmentParser::getInstance()->parse($eId);
-							} catch (Exception){
+							} catch (Exception) {
 								continue;
 							}
 
@@ -327,33 +338,33 @@ class Main extends PluginBase implements Listener
 					continue;
 				}
 
-				if(in_array($slot_, ["helmet", "chestplate", "leggings", "boots"])){
-					foreach (["id", "enchants"] as $key){
-						if(!isset($slotData[$key])){
+				if (in_array($slot_, ["helmet", "chestplate", "leggings", "boots"])) {
+					foreach (["id", "enchants"] as $key) {
+						if (!isset($slotData[$key])) {
 							$this->getLogger()->error("Failed to load '" . $name . "' kit, Error: Missing a required key of armor (" . $key . ")");
 							$this->getServer()->getPluginManager()->disablePlugin($this);
 							continue;
 						}
 					}
 
-					$id = $slotData["id"];
+					$id = strval($slotData["id"]);
 					$enchants = $slotData["enchants"];
-					
-					try{
-						$item = LegacyStringToItemParser::getInstance()->parse($id) ?? StringToItemParser::getInstance()->parse($id);
-					} catch (Exception){
+
+					try {
+						$item = StringToItemParser::getInstance()->parse($id) ?? LegacyStringToItemParser::getInstance()->parse($id);
+					} catch (Exception) {
 						$this->getLogger()->error("'" . $name . "' kit has an invalid item identifier: '" . $id . "'");
 						continue;
 					}
 
-					if($item->isNull()){
+					if ($item->isNull()) {
 						continue;
 					}
 
-					if(!empty($enchants)){
-						foreach ($enchants as $id_ => $enchantData){
+					if (!empty($enchants)) {
+						foreach ($enchants as $id_ => $enchantData) {
 							$eId = str_replace("id-", "", $id_);
-							if(!isset($enchantData["level"])){
+							if (!isset($enchantData["level"])) {
 								$this->getLogger()->error("Failed to load '" . $name . "' kit, Error: Missing a required key of enchant id " . $eId . " (level)");
 								$this->getServer()->getPluginManager()->disablePlugin($this);
 								continue;
@@ -363,7 +374,7 @@ class Main extends PluginBase implements Listener
 
 							try {
 								$enchantment = EnchantmentIdMap::getInstance()->fromId(intval($eId)) ?? StringToEnchantmentParser::getInstance()->parse($eId);
-							} catch (Exception){
+							} catch (Exception) {
 								continue;
 							}
 
@@ -383,24 +394,37 @@ class Main extends PluginBase implements Listener
 	/**
 	 * @return void
 	 */
-	private function loadBannedCommands(): void{
+	private function loadBannedCommands(): void
+	{
 		$cfg = new Config($this->getDataFolder() . "config.yml", Config::YAML);
 		$commands = array_map("strtolower", $cfg->get("banned-commands", []));
-		foreach ($commands as $cmd){
-			if(!$this->getBanManager()->addCommand($cmd)){
+		foreach ($commands as $cmd) {
+			if (!$this->getBanManager()->addCommand($cmd)) {
 				$this->getLogger()->info("Failed to ban the '" . $cmd . "' command; it's already banned.");
 			}
 		}
+	}
+
+	private function registerEntities(): void
+	{
+		EntityFactory::getInstance()->register(
+			LeaderboardEntity::class,
+			function (World $world, CompoundTag $nbt): LeaderboardEntity {
+				return new LeaderboardEntity(EntityDataHelper::parseLocation($nbt, $world), $nbt);
+			},
+			[LeaderboardEntity::class, "LeaderboardEntity"]
+		);
 	}
 
 	/**
 	 * @internal This function could change anytime without warning.
 	 * @return void
 	 */
-	public function loadArenas(): void{
-		if($this->isDisabled()) return;
+	public function loadArenas(): void
+	{
+		if ($this->isDisabled()) return;
 
-		Await::f2c(function (): Generator{
+		Await::f2c(function (): Generator {
 			$rows = yield from Await::promise(
 				fn(Closure $resolve) => $this->getProvider()->db()->executeSelect(
 					SQLKeyStorer::GET_ARENAS,
@@ -410,21 +434,26 @@ class Main extends PluginBase implements Listener
 				)
 			);
 
-			if(!empty($rows)){
-				foreach ($rows as $data){
-					if(!isset($data["name"], $data["world"], $data["lobby"], $data["respawn"])){
-						if(isset($data["name"])){
+			if (!empty($rows)) {
+				foreach ($rows as $data) {
+					if (!isset($data["name"], $data["world"], $data["lobby"], $data["respawn"], $data["kit"])) {
+						if (isset($data["name"])) {
 							$this->getLogger()->error("Failed to load arena '" . $data["name"] . "' because of corrupt data.");
 						}
 						continue;
 					}
 
+					if (!isset($this->kits[$data["kit"]])) {
+						$this->getLogger()->error("Failed to load arena '" . $data["name"] . "' - unknown kit: '" . $data["kit"] . "'");
+						continue;
+					}
+
 					$this->getServer()->getWorldManager()->loadWorld($data["world"]);
-					if(($world = $this->getServer()->getWorldManager()->getWorldByName($data["world"])) === null){
+					if (($world = $this->getServer()->getWorldManager()->getWorldByName($data["world"])) === null) {
 						$this->getLogger()->error("There is an error with loading the world '" . $data["world"] . "' of the arena '" . $data["name"] . "'.");
 						continue;
 					}
-					
+
 					$world->setTime(1000);
 					$world->stopTime();
 
@@ -436,10 +465,11 @@ class Main extends PluginBase implements Listener
 			}
 		});
 	}
-	
-	public function addArena(array $data, Closure $onSuccess){
-		Await::f2c(function () use ($data, $onSuccess): Generator{
-			if(!isset($data["name"], $data["world"], $data["lobby"], $data["respawn"])){
+
+	public function addArena(array $data, Closure $onSuccess): void
+	{
+		Await::f2c(function () use ($data, $onSuccess): Generator {
+			if (!isset($data["name"], $data["world"], $data["lobby"], $data["respawn"], $data["kit"])) {
 				$onSuccess(
 					ClosureResult::create(
 						ClosureResult::STATE_FAILURE,
@@ -448,11 +478,12 @@ class Main extends PluginBase implements Listener
 				);
 				return;
 			}
-			
+
 			$name = $data["name"];
 			$world = $data["world"];
 			$lobby = $data["lobby"];
 			$respawn = $data["respawn"];
+			$kit = $data["kit"];
 
 			yield from Await::promise(
 				fn(Closure $resolve) => $this->getProvider()->db()->executeInsert(
@@ -461,7 +492,8 @@ class Main extends PluginBase implements Listener
 						"name" => $name,
 						"world" => $world,
 						"lobby" => json_encode($lobby),
-						"respawn" => json_encode($respawn)
+						"respawn" => json_encode($respawn),
+						"kit" => $kit
 					],
 					$resolve,
 					fn(SqlError $err) => $onSuccess(
@@ -472,25 +504,26 @@ class Main extends PluginBase implements Listener
 					)
 				)
 			);
-	
+
 			$onSuccess(
 				ClosureResult::create(
 					ClosureResult::STATE_SUCCESS,
 					true
 				)
 			);
-	
+
 			$this->arenas[$data["name"]] = new Arena($data);
 		});
 	}
-	
+
 	/**
 	 * @param string	$name
 	 * @param Closure	$onSuccess
 	 * @return void
 	 */
-	public function removeArena(string $name, Closure $onSuccess){
-		Await::f2c(function () use ($name, $onSuccess): Generator{
+	public function removeArena(string $name, Closure $onSuccess): void
+	{
+		Await::f2c(function () use ($name, $onSuccess): Generator {
 			/**
 			 * @var ClosureResult $isValid
 			 */
@@ -498,14 +531,14 @@ class Main extends PluginBase implements Listener
 				fn(Closure $resolve) => API::isValidArena($name, $resolve)
 			);
 
-			if($isValid->getValue()){
-				if(($arena = $this->getArena($name)) !== null){
-					foreach ($arena->getPlayers() as $player){
+			if ($isValid->getValue()) {
+				if (($arena = $this->getArena($name)) !== null) {
+					foreach ($arena->getPlayers() as $player) {
 						$arena->quitPlayer($player);
 					}
 				}
 
-				if(isset($this->arenas[$name])){
+				if (isset($this->arenas[$name])) {
 					unset($this->arenas[$name]);
 				}
 
@@ -527,81 +560,83 @@ class Main extends PluginBase implements Listener
 	}
 
 	/**
-	 * @return array
+	 * @return array<string, array<string, array>>
 	 */
-	public function getKits(): array{
+	public function getKits(): array
+	{
 		return $this->kits;
 	}
-	
+
 	/**
-	 * @return Arena[]
+	 * @return array<string, Arena>
 	 */
-	public function getArenas(): array{
+	public function getArenas(): array
+	{
 		return $this->arenas;
 	}
 
 	/**
 	 * @return DefaultProvider|null
 	 */
-	public function getProvider(): ?DefaultProvider{
+	public function getProvider(): ?DefaultProvider
+	{
 		return $this->provider;
 	}
-	
+
 	/**
 	 * @param string $name
 	 * @return Arena|null
 	 */
-	public function getArena(string $name): ?Arena{
+	public function getArena(string $name): ?Arena
+	{
 		return isset($this->arenas[$name]) ? $this->arenas[$name] : null;
 	}
-	
+
 	/**
 	 * @param Player $player
 	 * @param string $name
 	 * @return bool
 	 */
-	public function joinArena(Player $player, string $name): bool{
-		if(($arena = $this->getArena($name)) == null){
+	public function joinArena(Player $player, string $name): bool
+	{
+		if (($arena = $this->getArena($name)) == null) {
 			$player->sendMessage(TF::RED . "Arena not found!");
 			return false;
 		}
-		
-		if($this->getPlayerArena($player) !== null){
+
+		if ($this->getPlayerArena($player) !== null) {
 			$player->sendMessage(TF::RED . "You're already in the arena!");
 			return false;
 		}
 
-		if($arena->joinPlayer($player)){
-			return true;
-		}
-
-		return false;
+		return $arena->joinPlayer($player);
 	}
-	
+
 	/**
 	 * @param Player $player
 	 * @return bool
 	 */
-	public function joinRandomArena(Player $player): bool{
-		if($this->getPlayerArena($player) !== null){
+	public function joinRandomArena(Player $player): bool
+	{
+		if ($this->getPlayerArena($player) !== null) {
 			$player->sendMessage(TF::RED . "You're already in the arena!");
 			return false;
 		}
-		
-		if(empty($this->getArenas())){
+
+		if (empty($this->getArenas())) {
 			$player->sendMessage(TF::RED . "No arenas were found!");
 			return false;
 		}
-		
+
 		$all = [];
-		foreach ($this->getArenas() as $arena){
+		foreach ($this->getArenas() as $arena) {
 			$all[$arena->getName()] = count($arena->getPlayers());
 		}
 
 		arsort($all);
 
-		foreach ($all as $arena_name => $players_count){
-			if($this->joinArena($player, $arena_name)){
+		foreach ($all as $arena_name => $players_count) {
+			if ($this->joinArena($player, $arena_name)) {
 				return true;
 			}
 		}
@@ -613,101 +648,109 @@ class Main extends PluginBase implements Listener
 	 * @param Player $player
 	 * @return Arena|null
 	 */
-	public function getPlayerArena(Player $player): ?Arena{		
-		foreach ($this->getArenas() as $arena){
-			if($arena->inArena($player)){
+	public function getPlayerArena(Player $player): ?Arena
+	{
+		foreach ($this->getArenas() as $arena) {
+			if ($arena->inArena($player)) {
 				return $arena;
 			}
 		}
 
 		return null;
 	}
-	
+
 	/**
 	 * @param PlayerDropItemEvent $event
 	 * @return void
 	 */
-	public function onDrop(PlayerDropItemEvent $event){
-		if($this->getPlayerArena($event->getPlayer()) !== null){
+	public function onDrop(PlayerDropItemEvent $event): void
+	{
+		if ($this->getPlayerArena($event->getPlayer()) !== null) {
 			$event->cancel();
 		}
 	}
-	
+
 	/**
 	 * @param PlayerExhaustEvent $event
 	 * @return void
 	 */
-	public function onHunger(PlayerExhaustEvent $event){
-		if($this->getPlayerArena($event->getPlayer()) !== null){
+	public function onHunger(PlayerExhaustEvent $event): void
+	{
+		if ($this->getPlayerArena($event->getPlayer()) !== null) {
 			$event->cancel();
 		}
 	}
-	
+
 	/**
 	 * @param PlayerQuitEvent $event
 	 * @return void
 	 */
-	public function onQuit(PlayerQuitEvent $event){
-		if(($arena = $this->getPlayerArena($event->getPlayer())) !== null){
+	public function onQuit(PlayerQuitEvent $event): void
+	{
+		if (($arena = $this->getPlayerArena($event->getPlayer())) !== null) {
 			$arena->quitPlayer($event->getPlayer());
 		}
 	}
-	
+
 	/**
 	 * @param EntityTeleportEvent $event
 	 * @return void
 	 */
-	public function onLevelChange(EntityTeleportEvent $event){
+	public function onLevelChange(EntityTeleportEvent $event): void
+	{
 		$player = $event->getEntity();
 		$from = $event->getFrom();
 		$to = $event->getTo();
-		if($player instanceof Player){
-			if(($arena = $this->getPlayerArena($player)) !== null && $from->getWorld()->getFolderName() !== $to->getWorld()->getFolderName()){
+		if ($player instanceof Player) {
+			if (($arena = $this->getPlayerArena($player)) !== null && $from->getWorld()->getFolderName() !== $to->getWorld()->getFolderName()) {
 				$arena->quitPlayer($player);
 			}
 		}
 	}
-	
+
 	/**
 	 * @param BlockPlaceEvent $event
 	 * @return void
 	 */
-	public function onPlace(BlockPlaceEvent $event){
+	public function onPlace(BlockPlaceEvent $event): void
+	{
 		$player = $event->getPlayer();
-		if($this->getPlayerArena($player) !== null){
-			if(!$player->isCreative()){
+		if ($this->getPlayerArena($player) !== null) {
+			if (!$player->isCreative()) {
 				$event->cancel();
 			}
 		}
 	}
-	
+
 	/**
 	 * @param BlockBreakEvent $event
 	 * @return void
 	 */
-	public function onBreak(BlockBreakEvent $event){
+	public function onBreak(BlockBreakEvent $event): void
+	{
 		$player = $event->getPlayer();
-		if($this->getPlayerArena($player) !== null){
-			if(!$player->isCreative()){
+		if ($this->getPlayerArena($player) !== null) {
+			if (!$player->isCreative()) {
 				$event->cancel();
 			}
 		}
 	}
-	
+
 	/**
 	 * @param EntityDamageEvent $event
 	 * @return void
 	 */
-	public function onDamage(EntityDamageEvent $event): void{
+	public function onDamage(EntityDamageEvent $event): void
+	{
 		$entity = $event->getEntity();
-		if($entity instanceof Player){
-			if(($arena = $this->getPlayerArena($entity)) !== null){
-				if($event->getCause() == EntityDamageEvent::CAUSE_FALL){
+		if ($entity instanceof Player) {
+			if (($arena = $this->getPlayerArena($entity)) !== null) {
+				if ($event->getCause() == EntityDamageEvent::CAUSE_FALL) {
 					$event->cancel();
 					return;
 				}
-				
-				if($entity->getHealth() <= $event->getFinalDamage()){
+
+				if ($entity->getHealth() <= $event->getFinalDamage()) {
 					$arena->killPlayer($entity);
 					$event->cancel();
 				}
@@ -724,12 +767,19 @@ class Main extends PluginBase implements Listener
 		$entity = $event->getEntity();
 		$damager = $event->getDamager();
 
-		if($entity instanceof Player && $damager instanceof Player){
-			if(($arena = $this->getPlayerArena($entity)) !== null){
-				if($arena->isProtected($entity) || $arena->isProtected($damager)){
+		if ($entity instanceof Player && $damager instanceof Player) {
+			if (($arena = $this->getPlayerArena($entity)) !== null) {
+				if ($arena->isProtected($entity) || $arena->isProtected($damager)) {
 					$event->cancel();
 				}
 			}
+		}
+	}
+
+	public function onEntityMotion(EntityMotionEvent $event): void
+	{
+		if ($event->getEntity() instanceof LeaderboardEntity) {
+			$event->cancel();
 		}
 	}
 }
