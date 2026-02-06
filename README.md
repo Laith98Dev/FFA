@@ -41,7 +41,9 @@
 - `database` : Do not change.
 - `kits` : Add as many kits as you want and assign them to arenas.
 
-**Important Note**: When editing messages that contain `&` color codes (like `&c` for red, `&a` for green, etc.), you must wrap the entire message in double quotes (`""`). This ensures YAML correctly parses the `&` symbol as a string character. For example: `join-message: "&aWelcome {PLAYER} to {ARENA}!"` instead of `join-message: &aWelcome {PLAYER} to {ARENA}!`
+**Important YAML Note**: 
+1. When editing messages that contain `&` color codes (like `&c` for red, `&a` for green, etc.), wrap the entire message in double quotes (`""`). This ensures YAML correctly parses the `&` symbol as a string character. Example: `join-message: "&aWelcome {PLAYER} to {ARENA}!"`
+2. When using legacy item IDs with meta values (like `261:0` for a bow), wrap them in quotes. Without quotes, YAML interprets the colon (`:`) as a mapping indicator. Example: `id: "261:0"` instead of `id: 261:0`
 
 Example kit configuration:
 ```yaml
